@@ -995,7 +995,6 @@ function Texture( image, mapping, wrapS, wrapT, magFilter, minFilter, format, ty
 	this.flipY = true;
 	this.unpackAlignment = 4;	// valid values: 1, 2, 4, 8 (see http://www.khronos.org/opengles/sdk/docs/man/xhtml/glPixelStorei.xml)
 
-
 	// Values of encoding !== THREE.LinearEncoding only supported on map, envMap and emissiveMap.
 	//
 	// Also changing the encoding after already used by a Material will not automatically make the Material
@@ -1012,13 +1011,13 @@ Texture.DEFAULT_MAPPING = UVMapping;
 
 Object.defineProperty( Texture.prototype, "needsUpdate", {
 
-	set: function(value) { 
-		
-		if ( value === true ) this.version ++; 
-	
+	set: function ( value ) {
+
+		if ( value === true ) this.version ++;
+
 	}
 
-});
+} );
 
 Object.assign( Texture.prototype, EventDispatcher.prototype, {
 
@@ -3358,14 +3357,14 @@ Object.assign( Vector3.prototype, {
 
 function Matrix4() {
 
-	this.elements = new Float32Array( [
+	this.elements = [
 
 		1, 0, 0, 0,
 		0, 1, 0, 0,
 		0, 0, 1, 0,
 		0, 0, 0, 1
 
-	] );
+	];
 
 	if ( arguments.length > 0 ) {
 
@@ -3415,7 +3414,10 @@ Object.assign( Matrix4.prototype, {
 
 	copy: function ( m ) {
 
-		this.elements.set( m.elements );
+		var te = this.elements;
+		var me = m.elements;
+
+		for ( var i = 0; i < 16; i ++ ) te[ i ] = me[ i ];
 
 		return this;
 
@@ -3423,8 +3425,7 @@ Object.assign( Matrix4.prototype, {
 
 	copyPosition: function ( m ) {
 
-		var te = this.elements;
-		var me = m.elements;
+		var te = this.elements, me = m.elements;
 
 		te[ 12 ] = me[ 12 ];
 		te[ 13 ] = me[ 13 ];
@@ -3490,7 +3491,7 @@ Object.assign( Matrix4.prototype, {
 
 	makeRotationFromEuler: function ( euler ) {
 
-		if ( (euler && euler.isEuler) === false ) {
+		if ( ( euler && euler.isEuler ) === false ) {
 
 			console.error( 'THREE.Matrix: .makeRotationFromEuler() now expects a Euler rotation rather than a Vector3 and order.' );
 
@@ -3747,21 +3748,6 @@ Object.assign( Matrix4.prototype, {
 		te[ 7 ] = a41 * b12 + a42 * b22 + a43 * b32 + a44 * b42;
 		te[ 11 ] = a41 * b13 + a42 * b23 + a43 * b33 + a44 * b43;
 		te[ 15 ] = a41 * b14 + a42 * b24 + a43 * b34 + a44 * b44;
-
-		return this;
-
-	},
-
-	multiplyToArray: function ( a, b, r ) {
-
-		var te = this.elements;
-
-		this.multiplyMatrices( a, b );
-
-		r[ 0 ] = te[ 0 ]; r[ 1 ] = te[ 1 ]; r[ 2 ] = te[ 2 ]; r[ 3 ] = te[ 3 ];
-		r[ 4 ] = te[ 4 ]; r[ 5 ] = te[ 5 ]; r[ 6 ] = te[ 6 ]; r[ 7 ] = te[ 7 ];
-		r[ 8 ]  = te[ 8 ]; r[ 9 ]  = te[ 9 ]; r[ 10 ] = te[ 10 ]; r[ 11 ] = te[ 11 ];
-		r[ 12 ] = te[ 12 ]; r[ 13 ] = te[ 13 ]; r[ 14 ] = te[ 14 ]; r[ 15 ] = te[ 15 ];
 
 		return this;
 
@@ -4126,8 +4112,7 @@ Object.assign( Matrix4.prototype, {
 			position.z = te[ 14 ];
 
 			// scale the rotation part
-
-			matrix.elements.set( this.elements ); // at this point matrix is incomplete so we can't use .copy()
+			for ( var i = 0; i < 16; i ++ ) matrix.elements[ i ] = this.elements[ i ]; // at this point matrix is incomplete so we can't use .copy()
 
 			var invSX = 1 / sx;
 			var invSY = 1 / sy;
@@ -4369,6 +4354,11 @@ function UniformContainer() {
 var arrayCacheF32 = [];
 var arrayCacheI32 = [];
 
+// Float32Array caches used for uploading Matrix uniforms
+
+var mat4array = new Float32Array( 16 );
+var mat3array = new Float32Array( 9 );
+
 // Flattening for arrays of vectors and matrices
 
 function flatten( array, nBlocks, blockSize ) {
@@ -4473,13 +4463,31 @@ function setValue2fm( gl, v ) {
 
 function setValue3fm( gl, v ) {
 
-	gl.uniformMatrix3fv( this.addr, false, v.elements || v );
+	if ( v.elements === undefined ) {
+
+		gl.uniformMatrix3fv( this.addr, false, v );
+
+	} else {
+
+		mat3array.set( v.elements );
+		gl.uniformMatrix3fv( this.addr, false, mat3array );
+
+	}
 
 }
 
 function setValue4fm( gl, v ) {
 
-	gl.uniformMatrix4fv( this.addr, false, v.elements || v );
+	if ( v.elements === undefined ) {
+
+		gl.uniformMatrix4fv( this.addr, false, v );
+
+	} else {
+
+		mat4array.set( v.elements );
+		gl.uniformMatrix4fv( this.addr, false, mat4array );
+
+	}
 
 }
 
@@ -4669,7 +4677,7 @@ function StructuredUniform( id ) {
 
 }
 
-StructuredUniform.prototype.setValue = function( gl, value ) {
+StructuredUniform.prototype.setValue = function ( gl, value ) {
 
 	// Note: Don't need an extra 'renderer' parameter, since samplers
 	// are not allowed in structured uniforms.
@@ -4715,7 +4723,7 @@ function parseUniform( activeInfo, addr, container ) {
 	// reset RegExp object, because of the early exit of a previous run
 	RePathPart.lastIndex = 0;
 
-	for (; ;) {
+	for ( ; ; ) {
 
 		var match = RePathPart.exec( path ),
 			matchEnd = RePathPart.lastIndex,
@@ -4726,8 +4734,8 @@ function parseUniform( activeInfo, addr, container ) {
 
 		if ( idIsIndex ) id = id | 0; // convert to integer
 
-		if ( subscript === undefined ||
-				subscript === '[' && matchEnd + 2 === pathLength ) {
+		if ( subscript === undefined || subscript === '[' && matchEnd + 2 === pathLength ) {
+
 			// bare name or "pure" bottom-level array "[0]" suffix
 
 			addUniform( container, subscript === undefined ?
@@ -4737,10 +4745,10 @@ function parseUniform( activeInfo, addr, container ) {
 			break;
 
 		} else {
+
 			// step into inner node / create it in case it doesn't exist
 
-			var map = container.map,
-				next = map[ id ];
+			var map = container.map, next = map[ id ];
 
 			if ( next === undefined ) {
 
@@ -4779,7 +4787,7 @@ function WebGLUniforms( gl, program, renderer ) {
 
 }
 
-WebGLUniforms.prototype.setValue = function( gl, name, value ) {
+WebGLUniforms.prototype.setValue = function ( gl, name, value ) {
 
 	var u = this.map[ name ];
 
@@ -4787,7 +4795,7 @@ WebGLUniforms.prototype.setValue = function( gl, name, value ) {
 
 };
 
-WebGLUniforms.prototype.set = function( gl, object, name ) {
+WebGLUniforms.prototype.set = function ( gl, object, name ) {
 
 	var u = this.map[ name ];
 
@@ -4795,7 +4803,7 @@ WebGLUniforms.prototype.set = function( gl, object, name ) {
 
 };
 
-WebGLUniforms.prototype.setOptional = function( gl, object, name ) {
+WebGLUniforms.prototype.setOptional = function ( gl, object, name ) {
 
 	var v = object[ name ];
 
@@ -4806,7 +4814,7 @@ WebGLUniforms.prototype.setOptional = function( gl, object, name ) {
 
 // Static interface
 
-WebGLUniforms.upload = function( gl, seq, values, renderer ) {
+WebGLUniforms.upload = function ( gl, seq, values, renderer ) {
 
 	for ( var i = 0, n = seq.length; i !== n; ++ i ) {
 
@@ -4814,8 +4822,8 @@ WebGLUniforms.upload = function( gl, seq, values, renderer ) {
 			v = values[ u.id ];
 
 		if ( v.needsUpdate !== false ) {
-			// note: always updating when .needsUpdate is undefined
 
+			// note: always updating when .needsUpdate is undefined
 			u.setValue( gl, v.value, renderer );
 
 		}
@@ -4824,7 +4832,7 @@ WebGLUniforms.upload = function( gl, seq, values, renderer ) {
 
 };
 
-WebGLUniforms.seqWithValue = function( seq, values ) {
+WebGLUniforms.seqWithValue = function ( seq, values ) {
 
 	var r = [];
 
@@ -4910,7 +4918,7 @@ var alphamap_pars_fragment = "#ifdef USE_ALPHAMAP\r\n\r\n\tuniform sampler2D alp
 
 var alphatest_fragment = "#ifdef ALPHATEST\r\n\r\n\tif ( diffuseColor.a < ALPHATEST ) discard;\r\n\r\n#endif\r\n";
 
-var aomap_fragment = "#ifdef USE_AOMAP\r\n\r\n\tfloat ambientOcclusion = ( texture2D( aoMap, vUv2 ).r - 1.0 ) * aoMapIntensity + 1.0;\r\n\r\n\treflectedLight.indirectDiffuse *= ambientOcclusion;\r\n\r\n\t#if defined( USE_ENVMAP ) && defined( PHYSICAL )\r\n\r\n\t\tfloat dotNV = saturate( dot( geometry.normal, geometry.viewDir ) );\r\n\r\n\t\treflectedLight.indirectSpecular *= computeSpecularOcclusion( dotNV, ambientOcclusion, material.specularRoughness );\r\n\r\n\t#endif\r\n\r\n#endif\r\n";
+var aomap_fragment = "#ifdef USE_AOMAP\r\n\r\n\t// reads channel R, compatible with a combined OcclusionRoughnessMetallic (RGB) texture\r\n\tfloat ambientOcclusion = ( texture2D( aoMap, vUv2 ).r - 1.0 ) * aoMapIntensity + 1.0;\r\n\r\n\treflectedLight.indirectDiffuse *= ambientOcclusion;\r\n\r\n\t#if defined( USE_ENVMAP ) && defined( PHYSICAL )\r\n\r\n\t\tfloat dotNV = saturate( dot( geometry.normal, geometry.viewDir ) );\r\n\r\n\t\treflectedLight.indirectSpecular *= computeSpecularOcclusion( dotNV, ambientOcclusion, material.specularRoughness );\r\n\r\n\t#endif\r\n\r\n#endif\r\n";
 
 var aomap_pars_fragment = "#ifdef USE_AOMAP\r\n\r\n\tuniform sampler2D aoMap;\r\n\tuniform float aoMapIntensity;\r\n\r\n#endif";
 
@@ -5008,7 +5016,7 @@ var map_particle_fragment = "#ifdef USE_MAP\r\n\r\n\tvec4 mapTexel = texture2D( 
 
 var map_particle_pars_fragment = "#ifdef USE_MAP\r\n\r\n\tuniform vec4 offsetRepeat;\r\n\tuniform sampler2D map;\r\n\r\n#endif\r\n";
 
-var metalnessmap_fragment = "float metalnessFactor = metalness;\r\n\r\n#ifdef USE_METALNESSMAP\r\n\r\n\tvec4 texelMetalness = texture2D( metalnessMap, vUv );\r\n\tmetalnessFactor *= texelMetalness.r;\r\n\r\n#endif\r\n";
+var metalnessmap_fragment = "float metalnessFactor = metalness;\r\n\r\n#ifdef USE_METALNESSMAP\r\n\r\n\tvec4 texelMetalness = texture2D( metalnessMap, vUv );\r\n\r\n\t// reads channel B, compatible with a combined OcclusionRoughnessMetallic (RGB) texture\r\n\tmetalnessFactor *= texelMetalness.b;\r\n\r\n#endif\r\n";
 
 var metalnessmap_pars_fragment = "#ifdef USE_METALNESSMAP\r\n\r\n\tuniform sampler2D metalnessMap;\r\n\r\n#endif";
 
@@ -5030,7 +5038,7 @@ var premultiplied_alpha_fragment = "#ifdef PREMULTIPLIED_ALPHA\r\n\r\n\t// Get g
 
 var project_vertex = "#ifdef USE_SKINNING\r\n\r\n\tvec4 mvPosition = modelViewMatrix * skinned;\r\n\r\n#else\r\n\r\n\tvec4 mvPosition = modelViewMatrix * vec4( transformed, 1.0 );\r\n\r\n#endif\r\n\r\ngl_Position = projectionMatrix * mvPosition;\r\n";
 
-var roughnessmap_fragment = "float roughnessFactor = roughness;\r\n\r\n#ifdef USE_ROUGHNESSMAP\r\n\r\n\tvec4 texelRoughness = texture2D( roughnessMap, vUv );\r\n\troughnessFactor *= texelRoughness.r;\r\n\r\n#endif\r\n";
+var roughnessmap_fragment = "float roughnessFactor = roughness;\r\n\r\n#ifdef USE_ROUGHNESSMAP\r\n\r\n\tvec4 texelRoughness = texture2D( roughnessMap, vUv );\r\n\r\n\t// reads channel G, compatible with a combined OcclusionRoughnessMetallic (RGB) texture\r\n\troughnessFactor *= texelRoughness.g;\r\n\r\n#endif\r\n";
 
 var roughnessmap_pars_fragment = "#ifdef USE_ROUGHNESSMAP\r\n\r\n\tuniform sampler2D roughnessMap;\r\n\r\n#endif";
 
@@ -5044,7 +5052,7 @@ var shadowmask_pars_fragment = "float getShadowMask() {\r\n\r\n\tfloat shadow = 
 
 var skinbase_vertex = "#ifdef USE_SKINNING\r\n\r\n\tmat4 boneMatX = getBoneMatrix( skinIndex.x );\r\n\tmat4 boneMatY = getBoneMatrix( skinIndex.y );\r\n\tmat4 boneMatZ = getBoneMatrix( skinIndex.z );\r\n\tmat4 boneMatW = getBoneMatrix( skinIndex.w );\r\n\r\n#endif";
 
-var skinning_pars_vertex = "#ifdef USE_SKINNING\r\n\r\n\tuniform mat4 bindMatrix;\r\n\tuniform mat4 bindMatrixInverse;\r\n\r\n\t#ifdef BONE_TEXTURE\r\n\r\n\t\tuniform sampler2D boneTexture;\r\n\t\tuniform int boneTextureWidth;\r\n\t\tuniform int boneTextureHeight;\r\n\r\n\t\tmat4 getBoneMatrix( const in float i ) {\r\n\r\n\t\t\tfloat j = i * 4.0;\r\n\t\t\tfloat x = mod( j, float( boneTextureWidth ) );\r\n\t\t\tfloat y = floor( j / float( boneTextureWidth ) );\r\n\r\n\t\t\tfloat dx = 1.0 / float( boneTextureWidth );\r\n\t\t\tfloat dy = 1.0 / float( boneTextureHeight );\r\n\r\n\t\t\ty = dy * ( y + 0.5 );\r\n\r\n\t\t\tvec4 v1 = texture2D( boneTexture, vec2( dx * ( x + 0.5 ), y ) );\r\n\t\t\tvec4 v2 = texture2D( boneTexture, vec2( dx * ( x + 1.5 ), y ) );\r\n\t\t\tvec4 v3 = texture2D( boneTexture, vec2( dx * ( x + 2.5 ), y ) );\r\n\t\t\tvec4 v4 = texture2D( boneTexture, vec2( dx * ( x + 3.5 ), y ) );\r\n\r\n\t\t\tmat4 bone = mat4( v1, v2, v3, v4 );\r\n\r\n\t\t\treturn bone;\r\n\r\n\t\t}\r\n\r\n\t#else\r\n\r\n\t\tuniform mat4 boneMatrices[ MAX_BONES ];\r\n\r\n\t\tmat4 getBoneMatrix( const in float i ) {\r\n\r\n\t\t\tmat4 bone = boneMatrices[ int(i) ];\r\n\t\t\treturn bone;\r\n\r\n\t\t}\r\n\r\n\t#endif\r\n\r\n#endif\r\n";
+var skinning_pars_vertex = "#ifdef USE_SKINNING\r\n\r\n\tuniform mat4 bindMatrix;\r\n\tuniform mat4 bindMatrixInverse;\r\n\r\n\t#ifdef BONE_TEXTURE\r\n\r\n\t\tuniform sampler2D boneTexture;\r\n\t\tuniform int boneTextureSize;\r\n\r\n\t\tmat4 getBoneMatrix( const in float i ) {\r\n\r\n\t\t\tfloat j = i * 4.0;\r\n\t\t\tfloat x = mod( j, float( boneTextureSize ) );\r\n\t\t\tfloat y = floor( j / float( boneTextureSize ) );\r\n\r\n\t\t\tfloat dx = 1.0 / float( boneTextureSize );\r\n\t\t\tfloat dy = 1.0 / float( boneTextureSize );\r\n\r\n\t\t\ty = dy * ( y + 0.5 );\r\n\r\n\t\t\tvec4 v1 = texture2D( boneTexture, vec2( dx * ( x + 0.5 ), y ) );\r\n\t\t\tvec4 v2 = texture2D( boneTexture, vec2( dx * ( x + 1.5 ), y ) );\r\n\t\t\tvec4 v3 = texture2D( boneTexture, vec2( dx * ( x + 2.5 ), y ) );\r\n\t\t\tvec4 v4 = texture2D( boneTexture, vec2( dx * ( x + 3.5 ), y ) );\r\n\r\n\t\t\tmat4 bone = mat4( v1, v2, v3, v4 );\r\n\r\n\t\t\treturn bone;\r\n\r\n\t\t}\r\n\r\n\t#else\r\n\r\n\t\tuniform mat4 boneMatrices[ MAX_BONES ];\r\n\r\n\t\tmat4 getBoneMatrix( const in float i ) {\r\n\r\n\t\t\tmat4 bone = boneMatrices[ int(i) ];\r\n\t\t\treturn bone;\r\n\r\n\t\t}\r\n\r\n\t#endif\r\n\r\n#endif\r\n";
 
 var skinning_vertex = "#ifdef USE_SKINNING\r\n\r\n\tvec4 skinVertex = bindMatrix * vec4( transformed, 1.0 );\r\n\r\n\tvec4 skinned = vec4( 0.0 );\r\n\tskinned += boneMatX * skinVertex * skinWeight.x;\r\n\tskinned += boneMatY * skinVertex * skinWeight.y;\r\n\tskinned += boneMatZ * skinVertex * skinWeight.z;\r\n\tskinned += boneMatW * skinVertex * skinWeight.w;\r\n\tskinned  = bindMatrixInverse * skinned;\r\n\r\n#endif\r\n";
 
@@ -5764,7 +5772,7 @@ function DataTexture( data, width, height, format, type, mapping, wrapS, wrapT, 
 	this.magFilter = magFilter !== undefined ? magFilter : NearestFilter;
 	this.minFilter = minFilter !== undefined ? minFilter : NearestFilter;
 
-	this.generateMipmaps  = false;
+	this.generateMipmaps = false;
 	this.flipY = false;
 	this.unpackAlignment = 1;
 
@@ -7193,22 +7201,22 @@ function Material() {
 
 }
 
-Object.defineProperty( Material.prototype, "needsUpdate", {
+Object.defineProperty( Material.prototype, 'needsUpdate', {
 
-	get: function() {
+	get: function () {
 
 		return this._needsUpdate;
 
 	},
-	
-	set: function(value) {
+
+	set: function ( value ) {
 
 		if ( value === true ) this.update();
 		this._needsUpdate = value;
 
 	}
 
-});
+} );
 
 Object.assign( Material.prototype, EventDispatcher.prototype, {
 
@@ -7362,7 +7370,6 @@ Object.assign( Material.prototype, EventDispatcher.prototype, {
 		if ( this.wireframeLinecap !== 'round' ) data.wireframeLinecap = this.wireframeLinecap;
 		if ( this.wireframeLinejoin !== 'round' ) data.wireframeLinejoin = this.wireframeLinejoin;
 
-		data.skinning = this.skinning;
 		data.morphTargets = this.morphTargets;
 
 		// TODO: Copied from Object3D.toJSON
@@ -7495,7 +7502,6 @@ Object.assign( Material.prototype, EventDispatcher.prototype, {
  *
  *  lights: <bool>,
  *
- *  skinning: <bool>,
  *  morphTargets: <bool>,
  *  morphNormals: <bool>
  * }
@@ -7522,7 +7528,6 @@ function ShaderMaterial( parameters ) {
 	this.lights = false; // set to use scene lights
 	this.clipping = false; // set to use user-defined clipping planes
 
-	this.skinning = false; // set to use skinning attribute streams
 	this.morphTargets = false; // set to use morph targets
 	this.morphNormals = false; // set to use morph normals
 
@@ -7579,8 +7584,6 @@ ShaderMaterial.prototype.copy = function ( source ) {
 	this.lights = source.lights;
 	this.clipping = source.clipping;
 
-	this.skinning = source.skinning;
-
 	this.morphTargets = source.morphTargets;
 	this.morphNormals = source.morphNormals;
 
@@ -7633,7 +7636,6 @@ function MeshDepthMaterial( parameters ) {
 
 	this.depthPacking = BasicDepthPacking;
 
-	this.skinning = false;
 	this.morphTargets = false;
 
 	this.map = null;
@@ -7665,7 +7667,6 @@ MeshDepthMaterial.prototype.copy = function ( source ) {
 
 	this.depthPacking = source.depthPacking;
 
-	this.skinning = source.skinning;
 	this.morphTargets = source.morphTargets;
 
 	this.map = source.map;
@@ -8345,13 +8346,13 @@ Object.assign( Sphere.prototype, {
 
 function Matrix3() {
 
-	this.elements = new Float32Array( [
+	this.elements = [
 
 		1, 0, 0,
 		0, 1, 0,
 		0, 0, 1
 
-	] );
+	];
 
 	if ( arguments.length > 0 ) {
 
@@ -8399,21 +8400,16 @@ Object.assign( Matrix3.prototype, {
 
 	copy: function ( m ) {
 
+		var te = this.elements;
 		var me = m.elements;
 
-		this.set(
-
-			me[ 0 ], me[ 3 ], me[ 6 ],
-			me[ 1 ], me[ 4 ], me[ 7 ],
-			me[ 2 ], me[ 5 ], me[ 8 ]
-
-		);
+		for ( var i = 0; i < 9; i ++ ) te[ i ] = me[ i ];
 
 		return this;
 
 	},
 
-	setFromMatrix4: function( m ) {
+	setFromMatrix4: function ( m ) {
 
 		var me = m.elements;
 
@@ -8513,6 +8509,7 @@ Object.assign( Matrix3.prototype, {
 			}
 
 			return this.identity();
+
 		}
 
 		var detInv = 1 / det;
@@ -8573,7 +8570,7 @@ Object.assign( Matrix3.prototype, {
 
 		if ( offset === undefined ) offset = 0;
 
-		for( var i = 0; i < 9; i ++ ) {
+		for ( var i = 0; i < 9; i ++ ) {
 
 			this.elements[ i ] = array[ i + offset ];
 
@@ -8600,7 +8597,7 @@ Object.assign( Matrix3.prototype, {
 
 		array[ offset + 6 ] = te[ 6 ];
 		array[ offset + 7 ] = te[ 7 ];
-		array[ offset + 8 ]  = te[ 8 ];
+		array[ offset + 8 ] = te[ 8 ];
 
 		return array;
 
@@ -9054,12 +9051,9 @@ function WebGLShadowMap( _renderer, _lights, _objects, capabilities ) {
 	_lookTarget = new Vector3(),
 	_lightPositionWorld = new Vector3(),
 
-	_renderList = [],
-
 	_MorphingFlag = 1,
-	_SkinningFlag = 2,
 
-	_NumberOfMaterialVariants = ( _MorphingFlag | _SkinningFlag ) + 1,
+	_NumberOfMaterialVariants = ( _MorphingFlag ) + 1,
 
 	_depthMaterials = new Array( _NumberOfMaterialVariants ),
 	_distanceMaterials = new Array( _NumberOfMaterialVariants ),
@@ -9093,11 +9087,9 @@ function WebGLShadowMap( _renderer, _lights, _objects, capabilities ) {
 	for ( var i = 0; i !== _NumberOfMaterialVariants; ++ i ) {
 
 		var useMorphing = ( i & _MorphingFlag ) !== 0;
-		var useSkinning = ( i & _SkinningFlag ) !== 0;
 
 		var depthMaterial = depthMaterialTemplate.clone();
 		depthMaterial.morphTargets = useMorphing;
-		depthMaterial.skinning = useSkinning;
 
 		_depthMaterials[ i ] = depthMaterial;
 
@@ -9109,7 +9101,6 @@ function WebGLShadowMap( _renderer, _lights, _objects, capabilities ) {
 			vertexShader: distanceShader.vertexShader,
 			fragmentShader: distanceShader.fragmentShader,
 			morphTargets: useMorphing,
-			skinning: useSkinning,
 			clipping: true
 		} );
 
@@ -9286,46 +9277,7 @@ function WebGLShadowMap( _renderer, _lights, _objects, capabilities ) {
 
 				// set object matrices & frustum culling
 
-				_renderList.length = 0;
-
-				projectObject( scene, camera, shadowCamera );
-
-				// render shadow map
-				// render regular objects
-
-				for ( var j = 0, jl = _renderList.length; j < jl; j ++ ) {
-
-					var object = _renderList[ j ];
-					var geometry = _objects.update( object );
-					var material = object.material;
-
-					if ( material && material.isMultiMaterial ) {
-
-						var groups = geometry.groups;
-						var materials = material.materials;
-
-						for ( var k = 0, kl = groups.length; k < kl; k ++ ) {
-
-							var group = groups[ k ];
-							var groupMaterial = materials[ group.materialIndex ];
-
-							if ( groupMaterial.visible === true ) {
-
-								var depthMaterial = getDepthMaterial( object, groupMaterial, isPointLight, _lightPositionWorld );
-								_renderer.renderBufferDirect( shadowCamera, null, geometry, depthMaterial, object, group );
-
-							}
-
-						}
-
-					} else {
-
-						var depthMaterial = getDepthMaterial( object, material, isPointLight, _lightPositionWorld );
-						_renderer.renderBufferDirect( shadowCamera, null, geometry, depthMaterial, object, null );
-
-					}
-
-				}
+				renderObject( scene, camera, shadowCamera, isPointLight );
 
 			}
 
@@ -9374,12 +9326,9 @@ function WebGLShadowMap( _renderer, _lights, _objects, capabilities ) {
 
 			}
 
-			var useSkinning = object.isSkinnedMesh && material.skinning;
-
 			var variantIndex = 0;
 
 			if ( useMorphing ) variantIndex |= _MorphingFlag;
-			if ( useSkinning ) variantIndex |= _SkinningFlag;
 
 			result = materialVariants[ variantIndex ];
 
@@ -9390,7 +9339,7 @@ function WebGLShadowMap( _renderer, _lights, _objects, capabilities ) {
 		}
 
 		if ( _renderer.localClippingEnabled &&
-			 material.clipShadows === true &&
+				material.clipShadows === true &&
 				material.clippingPlanes.length !== 0 ) {
 
 			// in this case we need a unique material instance reflecting the
@@ -9456,7 +9405,7 @@ function WebGLShadowMap( _renderer, _lights, _objects, capabilities ) {
 
 	}
 
-	function projectObject( object, camera, shadowCamera ) {
+	function renderObject( object, camera, shadowCamera, isPointLight ) {
 
 		if ( object.visible === false ) return;
 
@@ -9466,12 +9415,33 @@ function WebGLShadowMap( _renderer, _lights, _objects, capabilities ) {
 
 			if ( object.castShadow && ( object.frustumCulled === false || _frustum.intersectsObject( object ) === true ) ) {
 
+				object.modelViewMatrix.multiplyMatrices( shadowCamera.matrixWorldInverse, object.matrixWorld );
+
+				var geometry = _objects.update( object );
 				var material = object.material;
 
-				if ( material.visible === true ) {
+				if ( Array.isArray( material ) ) {
 
-					object.modelViewMatrix.multiplyMatrices( shadowCamera.matrixWorldInverse, object.matrixWorld );
-					_renderList.push( object );
+					var groups = geometry.groups;
+
+					for ( var k = 0, kl = groups.length; k < kl; k ++ ) {
+
+						var group = groups[ k ];
+						var groupMaterial = material[ group.materialIndex ];
+
+						if ( groupMaterial && groupMaterial.visible === true ) {
+
+							var depthMaterial = getDepthMaterial( object, groupMaterial, isPointLight, _lightPositionWorld );
+							_renderer.renderBufferDirect( shadowCamera, null, geometry, depthMaterial, object, group );
+
+						}
+
+					}
+
+				} else if ( material.visible === true ) {
+
+					var depthMaterial = getDepthMaterial( object, material, isPointLight, _lightPositionWorld );
+					_renderer.renderBufferDirect( shadowCamera, null, geometry, depthMaterial, object, null );
 
 				}
 
@@ -9483,7 +9453,7 @@ function WebGLShadowMap( _renderer, _lights, _objects, capabilities ) {
 
 		for ( var i = 0, l = children.length; i < l; i ++ ) {
 
-			projectObject( children[ i ], camera, shadowCamera );
+			renderObject( children[ i ], camera, shadowCamera, isPointLight );
 
 		}
 
@@ -11601,7 +11571,6 @@ Object.assign( Face3.prototype, {
  *  wireframe: <boolean>,
  *  wireframeLinewidth: <float>,
  *
- *  skinning: <bool>,
  *  morphTargets: <bool>
  * }
  */
@@ -11636,7 +11605,6 @@ function MeshBasicMaterial( parameters ) {
 	this.wireframeLinecap = 'round';
 	this.wireframeLinejoin = 'round';
 
-	this.skinning = false;
 	this.morphTargets = false;
 
 	this.lights = false;
@@ -11678,7 +11646,6 @@ MeshBasicMaterial.prototype.copy = function ( source ) {
 	this.wireframeLinecap = source.wireframeLinecap;
 	this.wireframeLinejoin = source.wireframeLinejoin;
 
-	this.skinning = source.skinning;
 	this.morphTargets = source.morphTargets;
 
 	return this;
@@ -11713,15 +11680,15 @@ function BufferAttribute( array, itemSize, normalized ) {
 
 }
 
-Object.defineProperty( BufferAttribute.prototype, "needsUpdate", {
+Object.defineProperty( BufferAttribute.prototype, 'needsUpdate', {
 
-	set: function(value) { 
-		
+	set: function ( value ) {
+
 		if ( value === true ) this.version ++;
-	
+
 	}
 
-});
+} );
 
 Object.assign( BufferAttribute.prototype, {
 
@@ -15043,7 +15010,7 @@ Mesh.prototype = Object.assign( Object.create( Object3D.prototype ), {
 					uvB.fromBufferAttribute( uv, b );
 					uvC.fromBufferAttribute( uv, c );
 
-					intersection.uv = uvIntersection( intersectionPoint,  vA, vB, vC, uvA, uvB, uvC );
+					intersection.uv = uvIntersection( intersectionPoint, vA, vB, vC, uvA, uvB, uvC );
 
 				}
 
@@ -15143,8 +15110,7 @@ Mesh.prototype = Object.assign( Object.create( Object3D.prototype ), {
 			} else if ( geometry.isGeometry ) {
 
 				var fvA, fvB, fvC;
-				var isFaceMaterial = ( material && material.isMultiMaterial );
-				var materials = isFaceMaterial === true ? material.materials : null;
+				var isMultiMaterial = Array.isArray( material );
 
 				var vertices = geometry.vertices;
 				var faces = geometry.faces;
@@ -15156,7 +15122,7 @@ Mesh.prototype = Object.assign( Object.create( Object3D.prototype ), {
 				for ( var f = 0, fl = faces.length; f < fl; f ++ ) {
 
 					var face = faces[ f ];
-					var faceMaterial = isFaceMaterial === true ? materials[ face.materialIndex ] : material;
+					var faceMaterial = isMultiMaterial ? material[ face.materialIndex ] : material;
 
 					if ( faceMaterial === undefined ) continue;
 
@@ -15201,7 +15167,7 @@ Mesh.prototype = Object.assign( Object.create( Object3D.prototype ), {
 
 					if ( intersection ) {
 
-						if ( uvs ) {
+						if ( uvs && uvs[ f ] ) {
 
 							var uvs_f = uvs[ f ];
 							uvA.copy( uvs_f[ 0 ] );
@@ -16552,7 +16518,6 @@ function WebGLProgram( renderer, code, material, parameters ) {
 
 		prefixVertex = [
 
-        
 			'precision ' + parameters.precision + ' float;',
 			'precision ' + parameters.precision + ' int;',
 
@@ -16567,7 +16532,6 @@ function WebGLProgram( renderer, code, material, parameters ) {
 			'#define MAX_BONES ' + parameters.maxBones,
 			( parameters.useFog && parameters.fog ) ? '#define USE_FOG' : '',
 			( parameters.useFog && parameters.fogExp ) ? '#define FOG_EXP2' : '',
-
 
 			parameters.map ? '#define USE_MAP' : '',
 			parameters.envMap ? '#define USE_ENVMAP' : '',
@@ -16950,7 +16914,35 @@ function WebGLPrograms( renderer, capabilities ) {
 
 	function allocateBones( object ) {
 
-		if ( capabilities.floatVertexTextures && object && object.skeleton && object.skeleton.useVertexTexture ) {
+		var skeleton = object.skeleton;
+		var bones = skeleton.bones;
+
+		if ( capabilities.floatVertexTextures ) {
+
+			if ( skeleton.boneTexture === undefined ) {
+
+				// layout (1 matrix = 4 pixels)
+				//      RGBA RGBA RGBA RGBA (=> column1, column2, column3, column4)
+				//  with  8x8  pixel texture max   16 bones * 4 pixels =  (8 * 8)
+				//       16x16 pixel texture max   64 bones * 4 pixels = (16 * 16)
+				//       32x32 pixel texture max  256 bones * 4 pixels = (32 * 32)
+				//       64x64 pixel texture max 1024 bones * 4 pixels = (64 * 64)
+
+
+				var size = Math.sqrt( bones.length * 4 ); // 4 pixels needed for 1 matrix
+				size = _Math.nextPowerOfTwo( Math.ceil( size ) );
+				size = Math.max( size, 4 );
+
+				var boneMatrices = new Float32Array( size * size * 4 ); // 4 floats per RGBA pixel
+				boneMatrices.set( skeleton.boneMatrices ); // copy current values
+
+				var boneTexture = new DataTexture( boneMatrices, size, size, RGBAFormat, FloatType );
+
+				skeleton.boneMatrices = boneMatrices;
+				skeleton.boneTexture = boneTexture;
+				skeleton.boneTextureSize = size;
+
+			}
 
 			return 1024;
 
@@ -16966,17 +16958,12 @@ function WebGLPrograms( renderer, capabilities ) {
 			var nVertexUniforms = capabilities.maxVertexUniforms;
 			var nVertexMatrices = Math.floor( ( nVertexUniforms - 20 ) / 4 );
 
-			var maxBones = nVertexMatrices;
+			var maxBones = Math.min( nVertexMatrices, bones.length );
 
-			if ( object !== undefined && (object && object.isSkinnedMesh) ) {
+			if ( maxBones < bones.length ) {
 
-				maxBones = Math.min( object.skeleton.bones.length, maxBones );
-
-				if ( maxBones < object.skeleton.bones.length ) {
-
-					console.warn( 'WebGLRenderer: too many bones - ' + object.skeleton.bones.length + ', this GPU supports just ' + maxBones + ' (try OpenGL instead of ANGLE)' );
-
-				}
+				console.warn( 'THREE.WebGLRenderer: Skeleton has ' + bones.length + ' bones. This GPU supports ' + maxBones + '.' );
+				return 0;
 
 			}
 
@@ -17023,7 +17010,7 @@ function WebGLPrograms( renderer, capabilities ) {
 		// heuristics to create shader parameters according to lights in the scene
 		// (not to blow over maxLights budget)
 
-		var maxBones = allocateBones( object );
+		var maxBones = object.isSkinnedMesh ? allocateBones( object ) : 0;
 		var precision = renderer.getPrecision();
 
 		if ( material.precision !== null ) {
@@ -17073,16 +17060,16 @@ function WebGLPrograms( renderer, capabilities ) {
 
 			fog: !! fog,
 			useFog: material.fog,
-			fogExp: (fog && fog.isFogExp2),
+			fogExp: ( fog && fog.isFogExp2 ),
 
 			flatShading: material.shading === FlatShading,
 
 			sizeAttenuation: material.sizeAttenuation,
 			logarithmicDepthBuffer: capabilities.logarithmicDepthBuffer,
 
-			skinning: material.skinning,
+			skinning: ( object && object.isSkinnedMesh ) && maxBones > 0,
 			maxBones: maxBones,
-			useVertexTexture: capabilities.floatVertexTextures && object && object.skeleton && object.skeleton.useVertexTexture,
+			useVertexTexture: capabilities.floatVertexTextures,
 
 			morphTargets: material.morphTargets,
 			morphNormals: material.morphNormals,
@@ -21200,42 +21187,36 @@ function WebGLRenderer( parameters ) {
 
 				if ( object.frustumCulled === false || isObjectViewable( object ) === true ) {
 
+					if ( _this.sortObjects === true ) {
+
+						_vector3.setFromMatrixPosition( object.matrixWorld );
+						_vector3.applyMatrix4( _projScreenMatrix );
+
+					}
+
+					var geometry = objects.update( object );
 					var material = object.material;
 
-					if ( material.visible === true ) {
+					if ( Array.isArray( material ) ) {
 
-						if ( _this.sortObjects === true ) {
+						var groups = geometry.groups;
 
-							_vector3.setFromMatrixPosition( object.matrixWorld );
-							_vector3.applyMatrix4( _projScreenMatrix );
+						for ( var i = 0, l = groups.length; i < l; i ++ ) {
 
-						}
+							var group = groups[ i ];
+							var groupMaterial = material[ group.materialIndex ];
 
-						var geometry = objects.update( object );
+							if ( groupMaterial && groupMaterial.visible === true ) {
 
-						if ( material.isMultiMaterial ) {
-
-							var groups = geometry.groups;
-							var materials = material.materials;
-
-							for ( var i = 0, l = groups.length; i < l; i ++ ) {
-
-								var group = groups[ i ];
-								var groupMaterial = materials[ group.materialIndex ];
-
-								if ( groupMaterial.visible === true ) {
-
-									pushRenderItem( object, geometry, groupMaterial, _vector3.z, group );
-
-								}
+								pushRenderItem( object, geometry, groupMaterial, _vector3.z, group );
 
 							}
 
-						} else {
-
-							pushRenderItem( object, geometry, material, _vector3.z, null );
-
 						}
+
+					} else if ( material.visible === true ) {
+
+						pushRenderItem( object, geometry, material, _vector3.z, null );
 
 					}
 
@@ -21507,7 +21488,7 @@ function WebGLRenderer( parameters ) {
 
 			} else if ( materialProperties.numClippingPlanes !== undefined &&
 				( materialProperties.numClippingPlanes !== _clipping.numPlanes ||
-				materialProperties.numIntersection  !== _clipping.numIntersection ) ) {
+				materialProperties.numIntersection !== _clipping.numIntersection ) ) {
 
 				material.needsUpdate = true;
 
@@ -21598,7 +21579,7 @@ function WebGLRenderer( parameters ) {
 				material.isMeshBasicMaterial ||
 				material.isMeshStandardMaterial ||
 				material.isShaderMaterial ||
-				material.skinning ) {
+				object.isSkinnedMesh ) {
 
 				p_uniforms.setValue( _gl, 'viewMatrix', camera.matrixWorldInverse );
 
@@ -21613,7 +21594,7 @@ function WebGLRenderer( parameters ) {
 		// auto-setting of texture unit for bone texture must go before other textures
 		// not sure why, but otherwise weird things happen
 
-		if ( material.skinning ) {
+		if ( object.isSkinnedMesh ) {
 
 			p_uniforms.setOptional( _gl, object, 'bindMatrix' );
 			p_uniforms.setOptional( _gl, object, 'bindMatrixInverse' );
@@ -21622,11 +21603,10 @@ function WebGLRenderer( parameters ) {
 
 			if ( skeleton ) {
 
-				if ( capabilities.floatVertexTextures && skeleton.useVertexTexture ) {
+				if ( capabilities.floatVertexTextures ) {
 
 					p_uniforms.set( _gl, skeleton, 'boneTexture' );
-					p_uniforms.set( _gl, skeleton, 'boneTextureWidth' );
-					p_uniforms.set( _gl, skeleton, 'boneTextureHeight' );
+					p_uniforms.set( _gl, skeleton, 'boneTextureSize' );
 
 				} else {
 
@@ -22775,35 +22755,37 @@ function Scene () {
 
 }
 
-Scene.prototype = Object.create( Object3D.prototype );
+Scene.prototype = Object.assign( Object.create( Object3D.prototype ), {
 
-Scene.prototype.constructor = Scene;
+	constructor: Scene,
 
-Scene.prototype.copy = function ( source, recursive ) {
+	copy: function ( source, recursive ) {
 
-	Object3D.prototype.copy.call( this, source, recursive );
+		Object3D.prototype.copy.call( this, source, recursive );
 
-	if ( source.background !== null ) this.background = source.background.clone();
-	if ( source.fog !== null ) this.fog = source.fog.clone();
-	if ( source.overrideMaterial !== null ) this.overrideMaterial = source.overrideMaterial.clone();
+		if ( source.background !== null ) this.background = source.background.clone();
+		if ( source.fog !== null ) this.fog = source.fog.clone();
+		if ( source.overrideMaterial !== null ) this.overrideMaterial = source.overrideMaterial.clone();
 
-	this.autoUpdate = source.autoUpdate;
-	this.matrixAutoUpdate = source.matrixAutoUpdate;
+		this.autoUpdate = source.autoUpdate;
+		this.matrixAutoUpdate = source.matrixAutoUpdate;
 
-	return this;
+		return this;
 
-};
+	},
 
-Scene.prototype.toJSON = function ( meta ) {
+	toJSON: function ( meta ) {
 
-	var data = Object3D.prototype.toJSON.call( this, meta );
+		var data = Object3D.prototype.toJSON.call( this, meta );
 
-	if ( this.background !== null ) data.object.background = this.background.toJSON( meta );
-	if ( this.fog !== null ) data.object.fog = this.fog.toJSON();
+		if ( this.background !== null ) data.object.background = this.background.toJSON( meta );
+		if ( this.fog !== null ) data.object.fog = this.fog.toJSON();
 
-	return data;
+		return data;
 
-};
+	}
+
+} );
 
 /**
  * @author mikael emtinger / http://gomo.se/
@@ -23186,9 +23168,7 @@ LOD.prototype = Object.assign( Object.create( Object3D.prototype ), {
  * @author ikerr / http://verold.com
  */
 
-function Skeleton( bones, boneInverses, useVertexTexture ) {
-
-	this.useVertexTexture = useVertexTexture !== undefined ? useVertexTexture : true;
+function Skeleton( bones, boneInverses ) {
 
 	this.identityMatrix = new Matrix4();
 
@@ -23197,34 +23177,7 @@ function Skeleton( bones, boneInverses, useVertexTexture ) {
 	bones = bones || [];
 
 	this.bones = bones.slice( 0 );
-
-	// create a bone texture or an array of floats
-
-	if ( this.useVertexTexture ) {
-
-		// layout (1 matrix = 4 pixels)
-		//      RGBA RGBA RGBA RGBA (=> column1, column2, column3, column4)
-		//  with  8x8  pixel texture max   16 bones * 4 pixels =  (8 * 8)
-		//       16x16 pixel texture max   64 bones * 4 pixels = (16 * 16)
-		//       32x32 pixel texture max  256 bones * 4 pixels = (32 * 32)
-		//       64x64 pixel texture max 1024 bones * 4 pixels = (64 * 64)
-
-
-		var size = Math.sqrt( this.bones.length * 4 ); // 4 pixels needed for 1 matrix
-		size = _Math.nextPowerOfTwo( Math.ceil( size ) );
-		size = Math.max( size, 4 );
-
-		this.boneTextureWidth = size;
-		this.boneTextureHeight = size;
-
-		this.boneMatrices = new Float32Array( this.boneTextureWidth * this.boneTextureHeight * 4 ); // 4 floats per RGBA pixel
-		this.boneTexture = new DataTexture( this.boneMatrices, this.boneTextureWidth, this.boneTextureHeight, RGBAFormat, FloatType );
-
-	} else {
-
-		this.boneMatrices = new Float32Array( 16 * this.bones.length );
-
-	}
+	this.boneMatrices = new Float32Array( this.bones.length * 16 );
 
 	// use the supplied bone inverses or calculate the inverses
 
@@ -23240,7 +23193,7 @@ function Skeleton( bones, boneInverses, useVertexTexture ) {
 
 		} else {
 
-			console.warn( 'THREE.Skeleton bonInverses is the wrong length.' );
+			console.warn( 'THREE.Skeleton boneInverses is the wrong length.' );
 
 			this.boneInverses = [];
 
@@ -23329,22 +23282,27 @@ Object.assign( Skeleton.prototype, {
 
 		return function update() {
 
+			var bones = this.bones;
+			var boneInverses = this.boneInverses;
+			var boneMatrices = this.boneMatrices;
+			var boneTexture = this.boneTexture;
+
 			// flatten bone matrices to array
 
-			for ( var b = 0, bl = this.bones.length; b < bl; b ++ ) {
+			for ( var b = 0, bl = bones.length; b < bl; b ++ ) {
 
 				// compute the offset between the current and the original transform
 
-				var matrix = this.bones[ b ] ? this.bones[ b ].matrixWorld : this.identityMatrix;
+				var matrix = bones[ b ] ? bones[ b ].matrixWorld : this.identityMatrix;
 
-				offsetMatrix.multiplyMatrices( matrix, this.boneInverses[ b ] );
-				offsetMatrix.toArray( this.boneMatrices, b * 16 );
+				offsetMatrix.multiplyMatrices( matrix, boneInverses[ b ] );
+				offsetMatrix.toArray( boneMatrices, b * 16 );
 
 			}
 
-			if ( this.useVertexTexture ) {
+			if ( boneTexture !== undefined ) {
 
-				this.boneTexture.needsUpdate = true;
+				boneTexture.needsUpdate = true;
 
 			}
 
@@ -23354,7 +23312,7 @@ Object.assign( Skeleton.prototype, {
 
 	clone: function () {
 
-		return new Skeleton( this.bones, this.boneInverses, this.useVertexTexture );
+		return new Skeleton( this.bones, this.boneInverses );
 
 	}
 
@@ -23388,7 +23346,7 @@ Bone.prototype = Object.assign( Object.create( Object3D.prototype ), {
  * @author ikerr / http://verold.com
  */
 
-function SkinnedMesh( geometry, material, useVertexTexture ) {
+function SkinnedMesh( geometry, material ) {
 
 	Mesh.call( this, geometry, material );
 
@@ -23445,7 +23403,7 @@ function SkinnedMesh( geometry, material, useVertexTexture ) {
 	this.normalizeSkinWeights();
 
 	this.updateMatrixWorld( true );
-	this.bind( new Skeleton( bones, undefined, useVertexTexture ), this.matrixWorld );
+	this.bind( new Skeleton( bones ), this.matrixWorld );
 
 }
 
@@ -23455,7 +23413,7 @@ SkinnedMesh.prototype = Object.assign( Object.create( Mesh.prototype ), {
 
 	isSkinnedMesh: true,
 
-	bind: function( skeleton, bindMatrix ) {
+	bind: function ( skeleton, bindMatrix ) {
 
 		this.skeleton = skeleton;
 
@@ -23535,7 +23493,7 @@ SkinnedMesh.prototype = Object.assign( Object.create( Mesh.prototype ), {
 
 	},
 
-	updateMatrixWorld: function( force ) {
+	updateMatrixWorld: function () {
 
 		Mesh.prototype.updateMatrixWorld.call( this, true );
 
@@ -23555,9 +23513,9 @@ SkinnedMesh.prototype = Object.assign( Object.create( Mesh.prototype ), {
 
 	},
 
-	clone: function() {
+	clone: function () {
 
-		return new this.constructor( this.geometry, this.material, this.skeleton.useVertexTexture ).copy( this );
+		return new this.constructor( this.geometry, this.material ).copy( this );
 
 	}
 
@@ -24238,7 +24196,7 @@ function WireframeGeometry( geometry ) {
 
 			if ( groups.length === 0 ) {
 
-				geometry.addGroup( 0, indices.count );
+				groups = [ { start: 0, count: indices.count, materialIndex: 0 } ];
 
 			}
 
@@ -28309,74 +28267,6 @@ RawShaderMaterial.prototype.constructor = RawShaderMaterial;
 RawShaderMaterial.prototype.isRawShaderMaterial = true;
 
 /**
- * @author mrdoob / http://mrdoob.com/
- */
-
-function MultiMaterial( materials ) {
-
-	this.uuid = _Math.generateUUID();
-
-	this.type = 'MultiMaterial';
-
-	this.materials = Array.isArray( materials ) ? materials : [];
-
-	this.visible = true;
-
-}
-
-Object.assign( MultiMaterial.prototype, {
-
-	isMultiMaterial: true,
-
-	toJSON: function ( meta ) {
-
-		var output = {
-			metadata: {
-				version: 4.2,
-				type: 'material',
-				generator: 'MaterialExporter'
-			},
-			uuid: this.uuid,
-			type: this.type,
-			materials: []
-		};
-
-		var materials = this.materials;
-
-		for ( var i = 0, l = materials.length; i < l; i ++ ) {
-
-			var material = materials[ i ].toJSON( meta );
-			delete material.metadata;
-
-			output.materials.push( material );
-
-		}
-
-		output.visible = this.visible;
-
-		return output;
-
-	},
-
-	clone: function () {
-
-		var material = new this.constructor();
-
-		for ( var i = 0; i < this.materials.length; i ++ ) {
-
-			material.materials.push( this.materials[ i ].clone() );
-
-		}
-
-		material.visible = this.visible;
-
-		return material;
-
-	}
-
-} );
-
-/**
  * @author WestLangley / http://github.com/WestLangley
  *
  * parameters = {
@@ -28421,7 +28311,6 @@ Object.assign( MultiMaterial.prototype, {
  *  wireframe: <boolean>,
  *  wireframeLinewidth: <float>,
  *
- *  skinning: <bool>,
  *  morphTargets: <bool>,
  *  morphNormals: <bool>
  * }
@@ -28477,7 +28366,6 @@ function MeshStandardMaterial( parameters ) {
 	this.wireframeLinecap = 'round';
 	this.wireframeLinejoin = 'round';
 
-	this.skinning = false;
 	this.morphTargets = false;
 	this.morphNormals = false;
 
@@ -28538,7 +28426,6 @@ MeshStandardMaterial.prototype.copy = function ( source ) {
 	this.wireframeLinecap = source.wireframeLinecap;
 	this.wireframeLinejoin = source.wireframeLinejoin;
 
-	this.skinning = source.skinning;
 	this.morphTargets = source.morphTargets;
 	this.morphNormals = source.morphNormals;
 
@@ -28635,7 +28522,6 @@ MeshPhysicalMaterial.prototype.copy = function ( source ) {
  *  wireframe: <boolean>,
  *  wireframeLinewidth: <float>,
  *
- *  skinning: <bool>,
  *  morphTargets: <bool>,
  *  morphNormals: <bool>
  * }
@@ -28687,7 +28573,6 @@ function MeshPhongMaterial( parameters ) {
 	this.wireframeLinecap = 'round';
 	this.wireframeLinejoin = 'round';
 
-	this.skinning = false;
 	this.morphTargets = false;
 	this.morphNormals = false;
 
@@ -28744,7 +28629,6 @@ MeshPhongMaterial.prototype.copy = function ( source ) {
 	this.wireframeLinecap = source.wireframeLinecap;
 	this.wireframeLinejoin = source.wireframeLinejoin;
 
-	this.skinning = source.skinning;
 	this.morphTargets = source.morphTargets;
 	this.morphNormals = source.morphNormals;
 
@@ -28809,7 +28693,6 @@ MeshToonMaterial.prototype.copy = function ( source ) {
  *  wireframe: <boolean>,
  *  wireframeLinewidth: <float>
  *
- *  skinning: <bool>,
  *  morphTargets: <bool>,
  *  morphNormals: <bool>
  * }
@@ -28837,7 +28720,6 @@ function MeshNormalMaterial( parameters ) {
 	this.fog = false;
 	this.lights = false;
 
-	this.skinning = false;
 	this.morphTargets = false;
 	this.morphNormals = false;
 
@@ -28867,7 +28749,6 @@ MeshNormalMaterial.prototype.copy = function ( source ) {
 	this.wireframe = source.wireframe;
 	this.wireframeLinewidth = source.wireframeLinewidth;
 
-	this.skinning = source.skinning;
 	this.morphTargets = source.morphTargets;
 	this.morphNormals = source.morphNormals;
 
@@ -28907,7 +28788,6 @@ MeshNormalMaterial.prototype.copy = function ( source ) {
  *  wireframe: <boolean>,
  *  wireframeLinewidth: <float>,
  *
- *  skinning: <bool>,
  *  morphTargets: <bool>,
  *  morphNormals: <bool>
  * }
@@ -28947,7 +28827,6 @@ function MeshLambertMaterial( parameters ) {
 	this.wireframeLinecap = 'round';
 	this.wireframeLinejoin = 'round';
 
-	this.skinning = false;
 	this.morphTargets = false;
 	this.morphNormals = false;
 
@@ -28992,7 +28871,6 @@ MeshLambertMaterial.prototype.copy = function ( source ) {
 	this.wireframeLinecap = source.wireframeLinecap;
 	this.wireframeLinejoin = source.wireframeLinejoin;
 
-	this.skinning = source.skinning;
 	this.morphTargets = source.morphTargets;
 	this.morphNormals = source.morphNormals;
 
@@ -29064,7 +28942,6 @@ var Materials = Object.freeze({
 	RawShaderMaterial: RawShaderMaterial,
 	ShaderMaterial: ShaderMaterial,
 	PointsMaterial: PointsMaterial,
-	MultiMaterial: MultiMaterial,
 	MeshPhysicalMaterial: MeshPhysicalMaterial,
 	MeshStandardMaterial: MeshStandardMaterial,
 	MeshPhongMaterial: MeshPhongMaterial,
@@ -29378,6 +29255,12 @@ Object.assign( FileLoader.prototype, {
 
 			if ( request.overrideMimeType ) request.overrideMimeType( this.mimeType !== undefined ? this.mimeType : 'text/plain' );
 
+			for ( var header in this.requestHeader ) {
+
+				request.setRequestHeader( header, this.requestHeader[ header ] );
+
+			}
+
 			request.send( null );
 
 		}
@@ -29412,6 +29295,13 @@ Object.assign( FileLoader.prototype, {
 	setMimeType: function ( value ) {
 
 		this.mimeType = value;
+		return this;
+
+	},
+
+	setRequestHeader: function ( value ) {
+
+		this.requestHeader = value;
 		return this;
 
 	}
@@ -29706,7 +29596,11 @@ Object.assign( ImageLoader.prototype, {
 
 		}, false );
 
-		if ( this.crossOrigin !== undefined ) image.crossOrigin = this.crossOrigin;
+		if ( url.substr( 0, 5 ) !== 'data:' ) {
+
+			if ( this.crossOrigin !== undefined ) image.crossOrigin = this.crossOrigin;
+
+		}
 
 		scope.manager.itemStart( url );
 
@@ -31636,7 +31530,7 @@ function AnimationClip( name, duration, tracks ) {
 
 	this.name = name;
 	this.tracks = tracks;
-	this.duration = ( duration !== undefined ) ? duration : -1;
+	this.duration = ( duration !== undefined ) ? duration : - 1;
 
 	this.uuid = _Math.generateUUID();
 
@@ -31653,7 +31547,7 @@ function AnimationClip( name, duration, tracks ) {
 
 Object.assign( AnimationClip, {
 
-	parse: function( json ) {
+	parse: function ( json ) {
 
 		var tracks = [],
 			jsonTracks = json.tracks,
@@ -31668,8 +31562,8 @@ Object.assign( AnimationClip, {
 		return new AnimationClip( json.name, json.duration, tracks );
 
 	},
-	
-	toJSON: function( clip ) {
+
+	toJSON: function ( clip ) {
 
 		var tracks = [],
 			clipTracks = clip.tracks;
@@ -31691,8 +31585,8 @@ Object.assign( AnimationClip, {
 		return json;
 
 	},
-	
-	CreateFromMorphTargetSequence: function( name, morphTargetSequence, fps, noLoop ) {
+
+	CreateFromMorphTargetSequence: function ( name, morphTargetSequence, fps, noLoop ) {
 
 		var numMorphTargets = morphTargetSequence.length;
 		var tracks = [];
@@ -31727,13 +31621,14 @@ Object.assign( AnimationClip, {
 						'.morphTargetInfluences[' + morphTargetSequence[ i ].name + ']',
 						times, values
 					).scale( 1.0 / fps ) );
+
 		}
 
-		return new AnimationClip( name, -1, tracks );
+		return new AnimationClip( name, - 1, tracks );
 
 	},
 
-	findByName: function( objectOrClipArray, name ) {
+	findByName: function ( objectOrClipArray, name ) {
 
 		var clipArray = objectOrClipArray;
 
@@ -31751,13 +31646,14 @@ Object.assign( AnimationClip, {
 				return clipArray[ i ];
 
 			}
+
 		}
 
 		return null;
 
 	},
 
-	CreateClipsFromMorphTargetSequences: function( morphTargets, fps, noLoop ) {
+	CreateClipsFromMorphTargetSequences: function ( morphTargets, fps, noLoop ) {
 
 		var animationToMorphTargets = {};
 
@@ -31802,7 +31698,7 @@ Object.assign( AnimationClip, {
 	},
 
 	// parse the animation.hierarchy format
-	parseAnimation: function( animation, bones ) {
+	parseAnimation: function ( animation, bones ) {
 
 		if ( ! animation ) {
 
@@ -31811,8 +31707,7 @@ Object.assign( AnimationClip, {
 
 		}
 
-		var addNonemptyTrack = function(
-				trackType, trackName, animationKeys, propertyName, destTracks ) {
+		var addNonemptyTrack = function ( trackType, trackName, animationKeys, propertyName, destTracks ) {
 
 			// only return track if there are actually keys.
 			if ( animationKeys.length !== 0 ) {
@@ -31820,8 +31715,7 @@ Object.assign( AnimationClip, {
 				var times = [];
 				var values = [];
 
-				AnimationUtils.flattenJSON(
-						animationKeys, times, values, propertyName );
+				AnimationUtils.flattenJSON( animationKeys, times, values, propertyName );
 
 				// empty keys are filtered out, so check again
 				if ( times.length !== 0 ) {
@@ -31838,7 +31732,7 @@ Object.assign( AnimationClip, {
 
 		var clipName = animation.name || 'default';
 		// automatic length determination in AnimationClip.
-		var duration = animation.length || -1;
+		var duration = animation.length || - 1;
 		var fps = animation.fps || 30;
 
 		var hierarchyTracks = animation.hierarchy || [];
@@ -31852,17 +31746,19 @@ Object.assign( AnimationClip, {
 
 			// process morph targets in a way exactly compatible
 			// with AnimationHandler.init( animation )
-			if ( animationKeys[0].morphTargets ) {
+			if ( animationKeys[ 0 ].morphTargets ) {
 
 				// figure out all morph targets used in this track
 				var morphTargetNames = {};
+
 				for ( var k = 0; k < animationKeys.length; k ++ ) {
 
-					if ( animationKeys[k].morphTargets ) {
+					if ( animationKeys[ k ].morphTargets ) {
 
-						for ( var m = 0; m < animationKeys[k].morphTargets.length; m ++ ) {
+						for ( var m = 0; m < animationKeys[ k ].morphTargets.length; m ++ ) {
 
-							morphTargetNames[ animationKeys[k].morphTargets[m] ] = -1;
+							morphTargetNames[ animationKeys[ k ].morphTargets[ m ] ] = - 1;
+
 						}
 
 					}
@@ -31877,22 +31773,23 @@ Object.assign( AnimationClip, {
 					var times = [];
 					var values = [];
 
-					for ( var m = 0; m !== animationKeys[k].morphTargets.length; ++ m ) {
+					for ( var m = 0; m !== animationKeys[ k ].morphTargets.length; ++ m ) {
 
-						var animationKey = animationKeys[k];
+						var animationKey = animationKeys[ k ];
 
 						times.push( animationKey.time );
 						values.push( ( animationKey.morphTarget === morphTargetName ) ? 1 : 0 );
 
 					}
 
-					tracks.push( new NumberKeyframeTrack('.morphTargetInfluence[' + morphTargetName + ']', times, values ) );
+					tracks.push( new NumberKeyframeTrack( '.morphTargetInfluence[' + morphTargetName + ']', times, values ) );
 
 				}
 
 				duration = morphTargetNames.length * ( fps || 1.0 );
 
 			} else {
+
 				// ...assume skeletal animation
 
 				var boneName = '.bones[' + bones[ h ].name + ']';
@@ -31929,10 +31826,9 @@ Object.assign( AnimationClip, {
 
 Object.assign( AnimationClip.prototype, {
 
-	resetDuration: function() {
+	resetDuration: function () {
 
-		var tracks = this.tracks,
-			duration = 0;
+		var tracks = this.tracks, duration = 0;
 
 		for ( var i = 0, n = tracks.length; i !== n; ++ i ) {
 
@@ -31946,7 +31842,7 @@ Object.assign( AnimationClip.prototype, {
 
 	},
 
-	trim: function() {
+	trim: function () {
 
 		for ( var i = 0; i < this.tracks.length; i ++ ) {
 
@@ -31958,7 +31854,7 @@ Object.assign( AnimationClip.prototype, {
 
 	},
 
-	optimize: function() {
+	optimize: function () {
 
 		for ( var i = 0; i < this.tracks.length; i ++ ) {
 
@@ -32050,7 +31946,6 @@ Object.assign( MaterialLoader.prototype, {
 		if ( json.wireframeLinewidth !== undefined ) material.wireframeLinewidth = json.wireframeLinewidth;
 		if ( json.wireframeLinecap !== undefined ) material.wireframeLinecap = json.wireframeLinecap;
 		if ( json.wireframeLinejoin !== undefined ) material.wireframeLinejoin = json.wireframeLinejoin;
-		if ( json.skinning !== undefined ) material.skinning = json.skinning;
 		if ( json.morphTargets !== undefined ) material.morphTargets = json.morphTargets;
 
 		// for PointsMaterial
@@ -33685,6 +33580,10 @@ Object.assign( ObjectLoader.prototype, {
 
 					break;
 
+				case 'SkinnedMesh':
+
+					console.warn( 'THREE.ObjectLoader.parseObject() does not support SkinnedMesh yet.' );
+
 				case 'Mesh':
 
 					var geometry = getGeometry( data.geometry );
@@ -33744,10 +33643,6 @@ Object.assign( ObjectLoader.prototype, {
 					object = new Group();
 
 					break;
-
-				case 'SkinnedMesh':
-
-					console.warn( 'THREE.ObjectLoader.parseObject() does not support SkinnedMesh type. Instantiates Object3D instead.' );
 
 				default:
 
@@ -33946,7 +33841,7 @@ Object.assign( Curve.prototype, {
 	// Virtual base class method to overwrite and implement in subclasses
 	//	- t [0 .. 1]
 
-	getPoint: function ( t ) {
+	getPoint: function () {
 
 		console.warn( "THREE.Curve: Warning, getPoint() not implemented!" );
 		return null;
@@ -33967,7 +33862,7 @@ Object.assign( Curve.prototype, {
 
 	getPoints: function ( divisions ) {
 
-		if ( isNaN( divisions ) ) divisions = 5;
+		if ( divisions === undefined ) divisions = 5;
 
 		var points = [];
 
@@ -33985,7 +33880,7 @@ Object.assign( Curve.prototype, {
 
 	getSpacedPoints: function ( divisions ) {
 
-		if ( isNaN( divisions ) ) divisions = 5;
+		if ( divisions === undefined ) divisions = 5;
 
 		var points = [];
 
@@ -34012,7 +33907,7 @@ Object.assign( Curve.prototype, {
 
 	getLengths: function ( divisions ) {
 
-		if ( isNaN( divisions ) ) divisions = ( this.__arcLengthDivisions ) ? ( this.__arcLengthDivisions ) : 200;
+		if ( divisions === undefined ) divisions = ( this.__arcLengthDivisions ) ? ( this.__arcLengthDivisions ) : 200;
 
 		if ( this.cacheArcLengths
 			&& ( this.cacheArcLengths.length === divisions + 1 )
@@ -34033,7 +33928,7 @@ Object.assign( Curve.prototype, {
 
 		for ( p = 1; p <= divisions; p ++ ) {
 
-			current = this.getPoint ( p / divisions );
+			current = this.getPoint( p / divisions );
 			sum += current.distanceTo( last );
 			cache.push( sum );
 			last = current;
@@ -34046,7 +33941,7 @@ Object.assign( Curve.prototype, {
 
 	},
 
-	updateArcLengths: function() {
+	updateArcLengths: function () {
 
 		this.needsUpdate = true;
 		this.getLengths();
@@ -34139,7 +34034,7 @@ Object.assign( Curve.prototype, {
 	// 2 points a small delta apart will be used to find its gradient
 	// which seems to give a reasonable approximation
 
-	getTangent: function( t ) {
+	getTangent: function ( t ) {
 
 		var delta = 0.0001;
 		var t1 = t - delta;
@@ -34463,7 +34358,7 @@ CurvePath.prototype = Object.assign( Object.create( Curve.prototype ), {
 
 	getSpacedPoints: function ( divisions ) {
 
-		if ( isNaN( divisions ) ) divisions = 40;
+		if ( divisions === undefined ) divisions = 40;
 
 		var points = [];
 
@@ -35549,7 +35444,7 @@ Object.assign( StereoCamera.prototype, {
 
 	update: ( function () {
 
-		var instance, focus, fov, aspect, near, far, zoom;
+		var instance, focus, fov, aspect, near, far, zoom, eyeSep;
 
 		var eyeRight = new Matrix4();
 		var eyeLeft = new Matrix4();
@@ -35558,7 +35453,7 @@ Object.assign( StereoCamera.prototype, {
 
 			var needsUpdate = instance !== this || focus !== camera.focus || fov !== camera.fov ||
 												aspect !== camera.aspect * this.aspect || near !== camera.near ||
-												far !== camera.far || zoom !== camera.zoom;
+												far !== camera.far || zoom !== camera.zoom || eyeSep !== this.eyeSep;
 
 			if ( needsUpdate ) {
 
@@ -35574,7 +35469,7 @@ Object.assign( StereoCamera.prototype, {
 				// http://paulbourke.net/stereographics/stereorender/
 
 				var projectionMatrix = camera.projectionMatrix.clone();
-				var eyeSep = this.eyeSep / 2;
+				eyeSep = this.eyeSep / 2;
 				var eyeSepOnProjection = eyeSep * near / focus;
 				var ymax = ( near * Math.tan( _Math.DEG2RAD * fov * 0.5 ) ) / zoom;
 				var xmin, xmax;
@@ -36313,7 +36208,7 @@ function PropertyMixer( binding, typeName, valueSize ) {
 Object.assign( PropertyMixer.prototype, {
 
 	// accumulate data in the 'incoming' region into 'accu<i>'
-	accumulate: function( accuIndex, weight ) {
+	accumulate: function ( accuIndex, weight ) {
 
 		// note: happily accumulating nothing when weight = 0, the caller knows
 		// the weight and shouldn't have made the call in the first place
@@ -36351,7 +36246,7 @@ Object.assign( PropertyMixer.prototype, {
 	},
 
 	// apply the state of 'accu<i>' to the binding when accus differ
-	apply: function( accuIndex ) {
+	apply: function ( accuIndex ) {
 
 		var stride = this.valueSize,
 			buffer = this.buffer,
@@ -36390,7 +36285,7 @@ Object.assign( PropertyMixer.prototype, {
 	},
 
 	// remember the state of the bound property and copy it to both accus
-	saveOriginalState: function() {
+	saveOriginalState: function () {
 
 		var binding = this.binding;
 
@@ -36413,7 +36308,7 @@ Object.assign( PropertyMixer.prototype, {
 	},
 
 	// apply the state previously taken via 'saveOriginalState' to the binding
-	restoreOriginalState: function() {
+	restoreOriginalState: function () {
 
 		var originalValueOffset = this.valueSize * 3;
 		this.binding.setValue( this.buffer, originalValueOffset );
@@ -36423,7 +36318,7 @@ Object.assign( PropertyMixer.prototype, {
 
 	// mix functions
 
-	_select: function( buffer, dstOffset, srcOffset, t, stride ) {
+	_select: function ( buffer, dstOffset, srcOffset, t, stride ) {
 
 		if ( t >= 0.5 ) {
 
@@ -36437,14 +36332,13 @@ Object.assign( PropertyMixer.prototype, {
 
 	},
 
-	_slerp: function( buffer, dstOffset, srcOffset, t, stride ) {
+	_slerp: function ( buffer, dstOffset, srcOffset, t ) {
 
-		Quaternion.slerpFlat( buffer, dstOffset,
-			buffer, dstOffset, buffer, srcOffset, t );
+		Quaternion.slerpFlat( buffer, dstOffset, buffer, dstOffset, buffer, srcOffset, t );
 
 	},
 
-	_lerp: function( buffer, dstOffset, srcOffset, t, stride ) {
+	_lerp: function ( buffer, dstOffset, srcOffset, t, stride ) {
 
 		var s = 1 - t;
 
@@ -36470,7 +36364,7 @@ Object.assign( PropertyMixer.prototype, {
  * @author tschw
  */
 
-function Composite ( targetGroup, path, optionalParsedPath ) {
+function Composite( targetGroup, path, optionalParsedPath ) {
 
 	var parsedPath = optionalParsedPath || PropertyBinding.parseTrackName( path );
 
@@ -36481,7 +36375,7 @@ function Composite ( targetGroup, path, optionalParsedPath ) {
 
 Object.assign( Composite.prototype, {
 
-	getValue: function( array, offset ) {
+	getValue: function ( array, offset ) {
 
 		this.bind(); // bind all binding
 
@@ -36493,7 +36387,7 @@ Object.assign( Composite.prototype, {
 
 	},
 
-	setValue: function( array, offset ) {
+	setValue: function ( array, offset ) {
 
 		var bindings = this._bindings;
 
@@ -36506,7 +36400,7 @@ Object.assign( Composite.prototype, {
 
 	},
 
-	bind: function() {
+	bind: function () {
 
 		var bindings = this._bindings;
 
@@ -36519,7 +36413,7 @@ Object.assign( Composite.prototype, {
 
 	},
 
-	unbind: function() {
+	unbind: function () {
 
 		var bindings = this._bindings;
 
@@ -36550,7 +36444,7 @@ Object.assign( PropertyBinding, {
 
 	Composite: Composite,
 
-	create: function( root, path, parsedPath ) {
+	create: function ( root, path, parsedPath ) {
 
 		if ( ! ( root && root.isAnimationObjectGroup ) ) {
 
@@ -36564,7 +36458,7 @@ Object.assign( PropertyBinding, {
 
 	},
 
-	parseTrackName: function( trackName ) {
+	parseTrackName: function ( trackName ) {
 
 		// matches strings in the form of:
 		//    nodeName.property
@@ -36606,9 +36500,9 @@ Object.assign( PropertyBinding, {
 
 	},
 
-	findNode: function( root, nodeName ) {
+	findNode: function ( root, nodeName ) {
 
-		if ( ! nodeName || nodeName === "" || nodeName === "root" || nodeName === "." || nodeName === -1 || nodeName === root.name || nodeName === root.uuid ) {
+		if ( ! nodeName || nodeName === "" || nodeName === "root" || nodeName === "." || nodeName === - 1 || nodeName === root.name || nodeName === root.uuid ) {
 
 			return root;
 
@@ -36617,9 +36511,9 @@ Object.assign( PropertyBinding, {
 		// search into skeleton bones.
 		if ( root.skeleton ) {
 
-			var searchSkeleton = function( skeleton ) {
+			var searchSkeleton = function ( skeleton ) {
 
-				for( var i = 0; i < skeleton.bones.length; i ++ ) {
+				for ( var i = 0; i < skeleton.bones.length; i ++ ) {
 
 					var bone = skeleton.bones[ i ];
 
@@ -36628,6 +36522,7 @@ Object.assign( PropertyBinding, {
 						return bone;
 
 					}
+
 				}
 
 				return null;
@@ -36641,14 +36536,15 @@ Object.assign( PropertyBinding, {
 				return bone;
 
 			}
+
 		}
 
 		// search into node subtree.
 		if ( root.children ) {
 
-			var searchNodeSubtree = function( children ) {
+			var searchNodeSubtree = function ( children ) {
 
-				for( var i = 0; i < children.length; i ++ ) {
+				for ( var i = 0; i < children.length; i ++ ) {
 
 					var childNode = children[ i ];
 
@@ -36687,8 +36583,8 @@ Object.assign( PropertyBinding, {
 Object.assign( PropertyBinding.prototype, { // prototype, continued
 
 	// these are used to "bind" a nonexistent property
-	_getValue_unavailable: function() {},
-	_setValue_unavailable: function() {},
+	_getValue_unavailable: function () {},
+	_setValue_unavailable: function () {},
 
 	BindingType: {
 		Direct: 0,
@@ -36879,7 +36775,7 @@ Object.assign( PropertyBinding.prototype, { // prototype, continued
 	},
 
 	// create getter / setter pair for a property in the scene graph
-	bind: function() {
+	bind: function () {
 
 		var targetObject = this.node,
 			parsedPath = this.parsedPath,
@@ -37025,9 +36921,11 @@ Object.assign( PropertyBinding.prototype, { // prototype, continued
 		var bindingType = this.BindingType.Direct;
 
 		if ( propertyIndex !== undefined ) {
+
 			// access a sub element of the property array (only primitives are supported right now)
 
 			if ( propertyName === "morphTargetInfluences" ) {
+
 				// potential optimization, skip this if propertyIndex is already an integer, and convert the integer string to a true integer.
 
 				// support resolving morphTarget names into indices.
@@ -37064,6 +36962,7 @@ Object.assign( PropertyBinding.prototype, { // prototype, continued
 			this.propertyIndex = propertyIndex;
 
 		} else if ( nodeProperty.fromArray !== undefined && nodeProperty.toArray !== undefined ) {
+
 			// must use copy for Object3D.Euler/Quaternion
 
 			bindingType = this.BindingType.HasFromToArray;
@@ -37071,7 +36970,7 @@ Object.assign( PropertyBinding.prototype, { // prototype, continued
 			this.resolvedProperty = nodeProperty;
 
 		} else if ( Array.isArray( nodeProperty ) ) {
-      
+
 			bindingType = this.BindingType.EntireArray;
 
 			this.resolvedProperty = nodeProperty;
@@ -37088,7 +36987,7 @@ Object.assign( PropertyBinding.prototype, { // prototype, continued
 
 	},
 
-	unbind: function() {
+	unbind: function () {
 
 		this.node = null;
 
@@ -37171,7 +37070,7 @@ function AnimationObjectGroup( var_args ) {
 
 		objects: {
 			get total() { return scope._objects.length; },
-			get inUse() { return this.total - scope.nCachedObjects_;  }
+			get inUse() { return this.total - scope.nCachedObjects_; }
 		},
 
 		get bindingsPerObject() { return scope._bindings.length; }
@@ -37260,7 +37159,7 @@ Object.assign( AnimationObjectGroup.prototype, {
 
 				}
 
-			} else if ( objects[ index ] !== knownObject) {
+			} else if ( objects[ index ] !== knownObject ) {
 
 				console.error( "Different objects with the same UUID " +
 						"detected. Clean the caches or recreate your " +
@@ -37408,7 +37307,8 @@ Object.assign( AnimationObjectGroup.prototype, {
 
 	// Internal interface used by befriended PropertyBinding.Composite:
 
-	subscribe_: function( path, parsedPath ) {
+	subscribe_: function ( path, parsedPath ) {
+
 		// returns an array of bindings for the given path that is changed
 		// according to the contained objects in the group
 
@@ -37433,13 +37333,10 @@ Object.assign( AnimationObjectGroup.prototype, {
 		parsedPaths.push( parsedPath );
 		bindings.push( bindingsForPath );
 
-		for ( var i = nCachedObjects,
-				n = objects.length; i !== n; ++ i ) {
+		for ( var i = nCachedObjects, n = objects.length; i !== n; ++ i ) {
 
 			var object = objects[ i ];
-
-			bindingsForPath[ i ] =
-					new PropertyBinding( object, path, parsedPath );
+			bindingsForPath[ i ] = new PropertyBinding( object, path, parsedPath );
 
 		}
 
@@ -37447,7 +37344,8 @@ Object.assign( AnimationObjectGroup.prototype, {
 
 	},
 
-	unsubscribe_: function( path ) {
+	unsubscribe_: function ( path ) {
+
 		// tells the group to forget about a property path and no longer
 		// update the array previously obtained with 'subscribe_'
 
@@ -38410,7 +38308,7 @@ Object.assign( AnimationMixer.prototype, EventDispatcher.prototype, {
 
 
 		var actionByRoot = actionsForClip.actionByRoot,
-			rootUuid = ( actions._localRoot || this._root ).uuid;
+			rootUuid = ( action._localRoot || this._root ).uuid;
 
 		delete actionByRoot[ rootUuid ];
 
@@ -39105,15 +39003,15 @@ function InterleavedBuffer( array, stride ) {
 
 }
 
-Object.defineProperty( InterleavedBuffer.prototype, "needsUpdate", {
+Object.defineProperty( InterleavedBuffer.prototype, 'needsUpdate', {
 
-	set: function(value) { 
-		
-		if ( value === true ) this.version ++; 
-	
+	set: function ( value ) {
+
+		if ( value === true ) this.version ++;
+
 	}
 
-});
+} );
 
 Object.assign( InterleavedBuffer.prototype, {
 
@@ -41577,8 +41475,24 @@ var LinePieces = 1;
 
 function MeshFaceMaterial( materials ) {
 
-	console.warn( 'THREE.MeshFaceMaterial has been renamed to THREE.MultiMaterial.' );
-	return new MultiMaterial( materials );
+	console.warn( 'THREE.MeshFaceMaterial has been removed. Use an Array instead.' );
+	return materials;
+
+}
+
+function MultiMaterial( materials ) {
+
+	if ( materials === undefined ) materials = [];
+
+	console.warn( 'THREE.MultiMaterial has been removed. Use an Array instead.' );
+	materials.isMultiMaterial = true;
+	materials.materials = materials;
+	materials.clone = function () {
+
+		return materials.slice();
+
+	};
+	return materials;
 
 }
 
@@ -41966,6 +41880,11 @@ Object.assign( Matrix4.prototype, {
 		return this.makeRotationFromQuaternion( q );
 
 	},
+	multiplyToArray: function () {
+
+		console.warn( 'THREE.Matrix4: .multiplyToArray() has been removed.' );
+
+	},
 	multiplyVector3: function ( vector ) {
 
 		console.warn( 'THREE.Matrix4: .multiplyVector3() has been removed. Use vector.applyMatrix4( matrix ) instead.' );
@@ -42236,6 +42155,21 @@ Object.defineProperties( LOD.prototype, {
 
 } );
 
+Object.defineProperty( Skeleton.prototype, 'useVertexTexture', {
+
+	get: function () {
+
+		console.warn( 'THREE.Skeleton: useVertexTexture has been removed.' );
+
+	},
+	set: function () {
+
+		console.warn( 'THREE.Skeleton: useVertexTexture has been removed.' );
+
+	}
+
+} );
+
 //
 
 PerspectiveCamera.prototype.setLens = function ( focalLength, filmGauge ) {
@@ -42454,22 +42388,36 @@ Object.defineProperties( Uniform.prototype, {
 
 Object.defineProperties( Material.prototype, {
 
-	wrapAround: {
+	skinning: {
 		get: function () {
 
-			console.warn( 'THREE.' + this.type + ': .wrapAround has been removed.' );
+			console.warn( 'THREE.Material: .skinning has been removed.' );
 
 		},
 		set: function () {
 
-			console.warn( 'THREE.' + this.type + ': .wrapAround has been removed.' );
+			console.warn( 'THREE.Material: .skinning has been removed.' );
+
+		}
+
+	},
+
+	wrapAround: {
+		get: function () {
+
+			console.warn( 'THREE.Material: .wrapAround has been removed.' );
+
+		},
+		set: function () {
+
+			console.warn( 'THREE.Material: .wrapAround has been removed.' );
 
 		}
 	},
 	wrapRGB: {
 		get: function () {
 
-			console.warn( 'THREE.' + this.type + ': .wrapRGB has been removed.' );
+			console.warn( 'THREE.Material: .wrapRGB has been removed.' );
 			return new Color();
 
 		}
@@ -42948,4 +42896,4 @@ function CanvasRenderer() {
 
 }
 
-export { WebGLMultiRenderTarget, WebGLRenderTargetCube, WebGLRenderTarget, WebGLRenderer, ShaderLib, UniformsLib, UniformsUtils, ShaderChunk, FogExp2, Fog, Scene, LensFlare, Sprite, LOD, SkinnedMesh, Skeleton, Bone, Mesh, LineSegments, LineLoop, Line, Points, Group, VideoTexture, DataTexture, CompressedTexture, CubeTexture, CanvasTexture, DepthTexture, Texture, CompressedTextureLoader, DataTextureLoader, CubeTextureLoader, TextureLoader, ObjectLoader, MaterialLoader, BufferGeometryLoader, DefaultLoadingManager, LoadingManager, JSONLoader, ImageLoader, FontLoader, FileLoader, Loader, Cache, AudioLoader, SpotLightShadow, SpotLight, PointLight, RectAreaLight, HemisphereLight, DirectionalLightShadow, DirectionalLight, AmbientLight, LightShadow, Light, StereoCamera, PerspectiveCamera, OrthographicCamera, CubeCamera, Camera, AudioListener, PositionalAudio, AudioContext, AudioAnalyser, Audio, VectorKeyframeTrack, StringKeyframeTrack, QuaternionKeyframeTrack, NumberKeyframeTrack, ColorKeyframeTrack, BooleanKeyframeTrack, PropertyMixer, PropertyBinding, KeyframeTrack, AnimationUtils, AnimationObjectGroup, AnimationMixer, AnimationClip, Uniform, InstancedBufferGeometry, BufferGeometry, GeometryIdCount, Geometry, InterleavedBufferAttribute, InstancedInterleavedBuffer, InterleavedBuffer, InstancedBufferAttribute, Face3, Object3D, Raycaster, Layers, EventDispatcher, Clock, QuaternionLinearInterpolant, LinearInterpolant, DiscreteInterpolant, CubicInterpolant, Interpolant, Triangle, _Math as Math, Spherical, Cylindrical, Plane, Frustum, Sphere, Ray, Matrix4, Matrix3, Box3, Box2, Line3, Euler, Vector4, Vector3, Vector2, Quaternion, Color, MorphBlendMesh, ImmediateRenderObject, VertexNormalsHelper, SpotLightHelper, SkeletonHelper, PointLightHelper, RectAreaLightHelper, HemisphereLightHelper, GridHelper, PolarGridHelper, FaceNormalsHelper, DirectionalLightHelper, CameraHelper, BoxHelper, ArrowHelper, AxisHelper, CatmullRomCurve3, CubicBezierCurve3, QuadraticBezierCurve3, LineCurve3, ArcCurve, EllipseCurve, SplineCurve, CubicBezierCurve, QuadraticBezierCurve, LineCurve, Shape, Path, ShapePath, Font, CurvePath, Curve, ShapeUtils, SceneUtils, WireframeGeometry, ParametricGeometry, ParametricBufferGeometry, TetrahedronGeometry, TetrahedronBufferGeometry, OctahedronGeometry, OctahedronBufferGeometry, IcosahedronGeometry, IcosahedronBufferGeometry, DodecahedronGeometry, DodecahedronBufferGeometry, PolyhedronGeometry, PolyhedronBufferGeometry, TubeGeometry, TubeBufferGeometry, TorusKnotGeometry, TorusKnotBufferGeometry, TorusGeometry, TorusBufferGeometry, TextGeometry, SphereGeometry, SphereBufferGeometry, RingGeometry, RingBufferGeometry, PlaneGeometry, PlaneBufferGeometry, LatheGeometry, LatheBufferGeometry, ShapeGeometry, ShapeBufferGeometry, ExtrudeGeometry, EdgesGeometry, ConeGeometry, ConeBufferGeometry, CylinderGeometry, CylinderBufferGeometry, CircleGeometry, CircleBufferGeometry, BoxGeometry, BoxBufferGeometry, ShadowMaterial, SpriteMaterial, RawShaderMaterial, ShaderMaterial, PointsMaterial, MultiMaterial, MeshPhysicalMaterial, MeshStandardMaterial, MeshPhongMaterial, MeshToonMaterial, MeshNormalMaterial, MeshLambertMaterial, MeshDepthMaterial, MeshBasicMaterial, LineDashedMaterial, LineBasicMaterial, Material, Float64BufferAttribute, Float32BufferAttribute, Uint32BufferAttribute, Int32BufferAttribute, Uint16BufferAttribute, Int16BufferAttribute, Uint8ClampedBufferAttribute, Uint8BufferAttribute, Int8BufferAttribute, BufferAttribute, REVISION, MOUSE, CullFaceNone, CullFaceBack, CullFaceFront, CullFaceFrontBack, FrontFaceDirectionCW, FrontFaceDirectionCCW, BasicShadowMap, PCFShadowMap, PCFSoftShadowMap, FrontSide, BackSide, DoubleSide, FlatShading, SmoothShading, NoColors, FaceColors, VertexColors, NoBlending, NormalBlending, AdditiveBlending, SubtractiveBlending, MultiplyBlending, CustomBlending, AddEquation, SubtractEquation, ReverseSubtractEquation, MinEquation, MaxEquation, ZeroFactor, OneFactor, SrcColorFactor, OneMinusSrcColorFactor, SrcAlphaFactor, OneMinusSrcAlphaFactor, DstAlphaFactor, OneMinusDstAlphaFactor, DstColorFactor, OneMinusDstColorFactor, SrcAlphaSaturateFactor, NeverDepth, AlwaysDepth, LessDepth, LessEqualDepth, EqualDepth, GreaterEqualDepth, GreaterDepth, NotEqualDepth, MultiplyOperation, MixOperation, AddOperation, NoToneMapping, LinearToneMapping, ReinhardToneMapping, Uncharted2ToneMapping, CineonToneMapping, UVMapping, CubeReflectionMapping, CubeRefractionMapping, EquirectangularReflectionMapping, EquirectangularRefractionMapping, SphericalReflectionMapping, CubeUVReflectionMapping, CubeUVRefractionMapping, RepeatWrapping, ClampToEdgeWrapping, MirroredRepeatWrapping, NearestFilter, NearestMipMapNearestFilter, NearestMipMapLinearFilter, LinearFilter, LinearMipMapNearestFilter, LinearMipMapLinearFilter, UnsignedByteType, ByteType, ShortType, UnsignedShortType, IntType, UnsignedIntType, FloatType, HalfFloatType, UnsignedShort4444Type, UnsignedShort5551Type, UnsignedShort565Type, UnsignedInt248Type, AlphaFormat, RGBFormat, RGBAFormat, LuminanceFormat, LuminanceAlphaFormat, RGBEFormat, DepthFormat, DepthStencilFormat, RGB_S3TC_DXT1_Format, RGBA_S3TC_DXT1_Format, RGBA_S3TC_DXT3_Format, RGBA_S3TC_DXT5_Format, RGB_PVRTC_4BPPV1_Format, RGB_PVRTC_2BPPV1_Format, RGBA_PVRTC_4BPPV1_Format, RGBA_PVRTC_2BPPV1_Format, RGB_ETC1_Format, LoopOnce, LoopRepeat, LoopPingPong, InterpolateDiscrete, InterpolateLinear, InterpolateSmooth, ZeroCurvatureEnding, ZeroSlopeEnding, WrapAroundEnding, TrianglesDrawMode, TriangleStripDrawMode, TriangleFanDrawMode, LinearEncoding, sRGBEncoding, GammaEncoding, RGBEEncoding, LogLuvEncoding, RGBM7Encoding, RGBM16Encoding, RGBDEncoding, BasicDepthPacking, RGBADepthPacking, BoxGeometry as CubeGeometry, Face4, LineStrip, LinePieces, MeshFaceMaterial, PointCloud, Particle, ParticleSystem, PointCloudMaterial, ParticleBasicMaterial, ParticleSystemMaterial, Vertex, DynamicBufferAttribute, Int8Attribute, Uint8Attribute, Uint8ClampedAttribute, Int16Attribute, Uint16Attribute, Int32Attribute, Uint32Attribute, Float32Attribute, Float64Attribute, ClosedSplineCurve3, SplineCurve3, Spline, BoundingBoxHelper, EdgesHelper, WireframeHelper, XHRLoader, BinaryTextureLoader, GeometryUtils, ImageUtils, Projector, CanvasRenderer };
+export { WebGLMultiRenderTarget, WebGLRenderTargetCube, WebGLRenderTarget, WebGLRenderer, ShaderLib, UniformsLib, UniformsUtils, ShaderChunk, FogExp2, Fog, Scene, LensFlare, Sprite, LOD, SkinnedMesh, Skeleton, Bone, Mesh, LineSegments, LineLoop, Line, Points, Group, VideoTexture, DataTexture, CompressedTexture, CubeTexture, CanvasTexture, DepthTexture, Texture, CompressedTextureLoader, DataTextureLoader, CubeTextureLoader, TextureLoader, ObjectLoader, MaterialLoader, BufferGeometryLoader, DefaultLoadingManager, LoadingManager, JSONLoader, ImageLoader, FontLoader, FileLoader, Loader, Cache, AudioLoader, SpotLightShadow, SpotLight, PointLight, RectAreaLight, HemisphereLight, DirectionalLightShadow, DirectionalLight, AmbientLight, LightShadow, Light, StereoCamera, PerspectiveCamera, OrthographicCamera, CubeCamera, Camera, AudioListener, PositionalAudio, AudioContext, AudioAnalyser, Audio, VectorKeyframeTrack, StringKeyframeTrack, QuaternionKeyframeTrack, NumberKeyframeTrack, ColorKeyframeTrack, BooleanKeyframeTrack, PropertyMixer, PropertyBinding, KeyframeTrack, AnimationUtils, AnimationObjectGroup, AnimationMixer, AnimationClip, Uniform, InstancedBufferGeometry, BufferGeometry, GeometryIdCount, Geometry, InterleavedBufferAttribute, InstancedInterleavedBuffer, InterleavedBuffer, InstancedBufferAttribute, Face3, Object3D, Raycaster, Layers, EventDispatcher, Clock, QuaternionLinearInterpolant, LinearInterpolant, DiscreteInterpolant, CubicInterpolant, Interpolant, Triangle, _Math as Math, Spherical, Cylindrical, Plane, Frustum, Sphere, Ray, Matrix4, Matrix3, Box3, Box2, Line3, Euler, Vector4, Vector3, Vector2, Quaternion, Color, MorphBlendMesh, ImmediateRenderObject, VertexNormalsHelper, SpotLightHelper, SkeletonHelper, PointLightHelper, RectAreaLightHelper, HemisphereLightHelper, GridHelper, PolarGridHelper, FaceNormalsHelper, DirectionalLightHelper, CameraHelper, BoxHelper, ArrowHelper, AxisHelper, CatmullRomCurve3, CubicBezierCurve3, QuadraticBezierCurve3, LineCurve3, ArcCurve, EllipseCurve, SplineCurve, CubicBezierCurve, QuadraticBezierCurve, LineCurve, Shape, Path, ShapePath, Font, CurvePath, Curve, ShapeUtils, SceneUtils, WireframeGeometry, ParametricGeometry, ParametricBufferGeometry, TetrahedronGeometry, TetrahedronBufferGeometry, OctahedronGeometry, OctahedronBufferGeometry, IcosahedronGeometry, IcosahedronBufferGeometry, DodecahedronGeometry, DodecahedronBufferGeometry, PolyhedronGeometry, PolyhedronBufferGeometry, TubeGeometry, TubeBufferGeometry, TorusKnotGeometry, TorusKnotBufferGeometry, TorusGeometry, TorusBufferGeometry, TextGeometry, SphereGeometry, SphereBufferGeometry, RingGeometry, RingBufferGeometry, PlaneGeometry, PlaneBufferGeometry, LatheGeometry, LatheBufferGeometry, ShapeGeometry, ShapeBufferGeometry, ExtrudeGeometry, EdgesGeometry, ConeGeometry, ConeBufferGeometry, CylinderGeometry, CylinderBufferGeometry, CircleGeometry, CircleBufferGeometry, BoxGeometry, BoxBufferGeometry, ShadowMaterial, SpriteMaterial, RawShaderMaterial, ShaderMaterial, PointsMaterial, MeshPhysicalMaterial, MeshStandardMaterial, MeshPhongMaterial, MeshToonMaterial, MeshNormalMaterial, MeshLambertMaterial, MeshDepthMaterial, MeshBasicMaterial, LineDashedMaterial, LineBasicMaterial, Material, Float64BufferAttribute, Float32BufferAttribute, Uint32BufferAttribute, Int32BufferAttribute, Uint16BufferAttribute, Int16BufferAttribute, Uint8ClampedBufferAttribute, Uint8BufferAttribute, Int8BufferAttribute, BufferAttribute, REVISION, MOUSE, CullFaceNone, CullFaceBack, CullFaceFront, CullFaceFrontBack, FrontFaceDirectionCW, FrontFaceDirectionCCW, BasicShadowMap, PCFShadowMap, PCFSoftShadowMap, FrontSide, BackSide, DoubleSide, FlatShading, SmoothShading, NoColors, FaceColors, VertexColors, NoBlending, NormalBlending, AdditiveBlending, SubtractiveBlending, MultiplyBlending, CustomBlending, AddEquation, SubtractEquation, ReverseSubtractEquation, MinEquation, MaxEquation, ZeroFactor, OneFactor, SrcColorFactor, OneMinusSrcColorFactor, SrcAlphaFactor, OneMinusSrcAlphaFactor, DstAlphaFactor, OneMinusDstAlphaFactor, DstColorFactor, OneMinusDstColorFactor, SrcAlphaSaturateFactor, NeverDepth, AlwaysDepth, LessDepth, LessEqualDepth, EqualDepth, GreaterEqualDepth, GreaterDepth, NotEqualDepth, MultiplyOperation, MixOperation, AddOperation, NoToneMapping, LinearToneMapping, ReinhardToneMapping, Uncharted2ToneMapping, CineonToneMapping, UVMapping, CubeReflectionMapping, CubeRefractionMapping, EquirectangularReflectionMapping, EquirectangularRefractionMapping, SphericalReflectionMapping, CubeUVReflectionMapping, CubeUVRefractionMapping, RepeatWrapping, ClampToEdgeWrapping, MirroredRepeatWrapping, NearestFilter, NearestMipMapNearestFilter, NearestMipMapLinearFilter, LinearFilter, LinearMipMapNearestFilter, LinearMipMapLinearFilter, UnsignedByteType, ByteType, ShortType, UnsignedShortType, IntType, UnsignedIntType, FloatType, HalfFloatType, UnsignedShort4444Type, UnsignedShort5551Type, UnsignedShort565Type, UnsignedInt248Type, AlphaFormat, RGBFormat, RGBAFormat, LuminanceFormat, LuminanceAlphaFormat, RGBEFormat, DepthFormat, DepthStencilFormat, RGB_S3TC_DXT1_Format, RGBA_S3TC_DXT1_Format, RGBA_S3TC_DXT3_Format, RGBA_S3TC_DXT5_Format, RGB_PVRTC_4BPPV1_Format, RGB_PVRTC_2BPPV1_Format, RGBA_PVRTC_4BPPV1_Format, RGBA_PVRTC_2BPPV1_Format, RGB_ETC1_Format, LoopOnce, LoopRepeat, LoopPingPong, InterpolateDiscrete, InterpolateLinear, InterpolateSmooth, ZeroCurvatureEnding, ZeroSlopeEnding, WrapAroundEnding, TrianglesDrawMode, TriangleStripDrawMode, TriangleFanDrawMode, LinearEncoding, sRGBEncoding, GammaEncoding, RGBEEncoding, LogLuvEncoding, RGBM7Encoding, RGBM16Encoding, RGBDEncoding, BasicDepthPacking, RGBADepthPacking, BoxGeometry as CubeGeometry, Face4, LineStrip, LinePieces, MeshFaceMaterial, MultiMaterial, PointCloud, Particle, ParticleSystem, PointCloudMaterial, ParticleBasicMaterial, ParticleSystemMaterial, Vertex, DynamicBufferAttribute, Int8Attribute, Uint8Attribute, Uint8ClampedAttribute, Int16Attribute, Uint16Attribute, Int32Attribute, Uint32Attribute, Float32Attribute, Float64Attribute, ClosedSplineCurve3, SplineCurve3, Spline, BoundingBoxHelper, EdgesHelper, WireframeHelper, XHRLoader, BinaryTextureLoader, GeometryUtils, ImageUtils, Projector, CanvasRenderer };
