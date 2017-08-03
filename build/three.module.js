@@ -18400,7 +18400,6 @@ function WebGLTextures( _gl, extensions, state, properties, capabilities, paramT
 
 		if ( renderTarget.isWebGLMultiRenderTarget ) {
 
-		_infoMemory.textures ++;
 			renderTargetProperties.__webglAttachmentTextures = [ ];
 			renderTargetProperties.__webglAttachments = [ ];
 			for ( var i = 0; i < renderTarget.attachments.length; i ++ ) {
@@ -18409,7 +18408,7 @@ function WebGLTextures( _gl, extensions, state, properties, capabilities, paramT
 				attachmentProperties.__webglTexture = _gl.createTexture();
 				renderTargetProperties.__webglAttachments[ i ] = _gl.COLOR_ATTACHMENT0 + i;
 
-				_infoMemory.textures ++;
+				infoMemory.textures ++;
 
 			}
 
@@ -18417,7 +18416,7 @@ function WebGLTextures( _gl, extensions, state, properties, capabilities, paramT
 
 			textureProperties.__webglTexture = _gl.createTexture();
 
-			_infoMemory.textures ++;
+			infoMemory.textures ++;
 
 		}
 
