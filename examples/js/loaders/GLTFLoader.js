@@ -17,6 +17,8 @@ THREE.GLTFLoader = ( function () {
 
 		constructor: GLTFLoader,
 
+		crossOrigin: 'Anonymous',
+
 		load: function ( url, onLoad, onProgress, onError ) {
 
 			var scope = this;
@@ -662,13 +664,20 @@ THREE.GLTFLoader = ( function () {
 
 	}
 
-	// Avoid the String.fromCharCode.apply(null, array) shortcut, which
-	// throws a "maximum call stack size exceeded" error for large arrays.
 	function convertUint8ArrayToString( array ) {
+
+		if ( window.TextDecoder !== undefined ) {
+
+			return new TextDecoder().decode( array );
+
+		}
+
+		// Avoid the String.fromCharCode.apply(null, array) shortcut, which
+		// throws a "maximum call stack size exceeded" error for large arrays.
 
 		var s = '';
 
-		for ( var i = 0; i < array.length; i ++ ) {
+		for ( var i = 0, il = array.length; i < il; i ++ ) {
 
 			s += String.fromCharCode( array[ i ] );
 
@@ -743,6 +752,11 @@ THREE.GLTFLoader = ( function () {
 				case 'TEXCOORD':
 
 					shaderText = shaderText.replace( regEx, 'uv' );
+					break;
+
+				case 'TEXCOORD_1':
+
+					shaderText = shaderText.replace( regEx, 'uv2' );
 					break;
 
 				case 'COLOR_0':
@@ -1625,6 +1639,10 @@ THREE.GLTFLoader = ( function () {
 									geometry.addAttribute( 'uv', bufferAttribute );
 									break;
 
+								case 'TEXCOORD_1':
+									geometry.addAttribute( 'uv2', bufferAttribute );
+									break;
+
 								case 'COLOR_0':
 								case 'COLOR0':
 								case 'COLOR':
@@ -2025,7 +2043,7 @@ THREE.GLTFLoader = ( function () {
 									var material = originalMaterial;
 									material.skinning = true;
 
-									child = new THREE.SkinnedMesh( geometry, material, false );
+									child = new THREE.SkinnedMesh( geometry, material );
 									child.castShadow = true;
 									child.userData = originalUserData;
 									child.name = originalName;
@@ -2054,7 +2072,7 @@ THREE.GLTFLoader = ( function () {
 
 									}
 
-									child.bind( new THREE.Skeleton( bones, boneInverses, false ), skinEntry.bindShapeMatrix );
+									child.bind( new THREE.Skeleton( bones, boneInverses ), skinEntry.bindShapeMatrix );
 
 									var buildBoneGraph = function ( parentJson, parentObject, property ) {
 

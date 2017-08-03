@@ -14,6 +14,8 @@ function ImageLoader( manager ) {
 
 Object.assign( ImageLoader.prototype, {
 
+	crossOrigin: 'Anonymous',
+
 	load: function ( url, onLoad, onProgress, onError ) {
 
 		if ( url === undefined ) url = '';
@@ -64,6 +66,7 @@ Object.assign( ImageLoader.prototype, {
 
 			if ( onError ) onError( event );
 
+			scope.manager.itemEnd( url );
 			scope.manager.itemError( url );
 
 		}, false );

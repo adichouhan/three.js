@@ -1,9 +1,3 @@
-import { BufferGeometry } from '../core/BufferGeometry';
-import { Float32BufferAttribute } from '../core/BufferAttribute';
-import { Vector2 } from '../math/Vector2';
-import { Vector3 } from '../math/Vector3';
-import { ShapeUtils } from '../extras/ShapeUtils';
-
 /**
  * @author zz85 / http://www.lab4games.net/zz85/blog
  *
@@ -26,9 +20,16 @@ import { ShapeUtils } from '../extras/ShapeUtils';
  *  UVGenerator: <Object> // object that provides UV generator functions
  *
  * }
- **/
- 
- import { Geometry } from '../core/Geometry';
+ */
+
+import { Geometry } from '../core/Geometry';
+import { BufferGeometry } from '../core/BufferGeometry';
+import { Float32BufferAttribute } from '../core/BufferAttribute';
+import { Vector2 } from '../math/Vector2';
+import { Vector3 } from '../math/Vector3';
+import { ShapeUtils } from '../extras/ShapeUtils';
+
+// ExtrudeGeometry
 
 function ExtrudeGeometry( shapes, options ) {
 
@@ -46,17 +47,15 @@ function ExtrudeGeometry( shapes, options ) {
 
 }
 
-
 ExtrudeGeometry.prototype = Object.create( Geometry.prototype );
 ExtrudeGeometry.prototype.constructor = ExtrudeGeometry;
 
- 
+// ExtrudeBufferGeometry
 
 function ExtrudeBufferGeometry( shapes, options ) {
 
 	if ( typeof ( shapes ) === "undefined" ) {
 
-		shapes = [];
 		return;
 
 	}
@@ -211,8 +210,6 @@ ExtrudeBufferGeometry.prototype.addShape = function ( shape, options ) {
 
 		}
 
-		reverse = false; // If vertices are in order now, we shouldn't need to worry about them again (hopefully)!
-
 	}
 
 
@@ -256,7 +253,7 @@ ExtrudeBufferGeometry.prototype.addShape = function ( shape, options ) {
 		// inPt' is the intersection of the two lines parallel to the two
 		//  adjacent edges of inPt at a distance of 1 unit on the left side.
 
-		var v_trans_x, v_trans_y, shrink_by = 1; // resulting translation vector for inPt
+		var v_trans_x, v_trans_y, shrink_by; // resulting translation vector for inPt
 
 		// good reading for geometry algorithms (here: line-line intersection)
 		// http://geomalgorithms.com/a05-_intersect-1.html
@@ -567,7 +564,7 @@ ExtrudeBufferGeometry.prototype.addShape = function ( shape, options ) {
 	/////  Internal functions
 
 	function buildLidFaces() {
-		
+
 		var start = verticesArray.length/3;
 
 		if ( bevelEnabled ) {
@@ -617,7 +614,7 @@ ExtrudeBufferGeometry.prototype.addShape = function ( shape, options ) {
 			}
 
 		}
-		
+
 		scope.addGroup( start, verticesArray.length/3 -start, options.material !== undefined ? options.material : 0);
 
 	}
@@ -640,7 +637,7 @@ ExtrudeBufferGeometry.prototype.addShape = function ( shape, options ) {
 			layeroffset += ahole.length;
 
 		}
-		
+
 
 		scope.addGroup( start, verticesArray.length/3 -start, options.extrudeMaterial !== undefined ? options.extrudeMaterial : 1);
 
@@ -814,7 +811,4 @@ ExtrudeGeometry.WorldUVGenerator = {
 };
 
 
-export {
-	ExtrudeGeometry,
-	ExtrudeBufferGeometry
-};
+export { ExtrudeGeometry, ExtrudeBufferGeometry };

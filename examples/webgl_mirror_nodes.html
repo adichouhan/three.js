@@ -31,7 +31,7 @@
 	<body>
 
 		<div id="container"></div>
-		<div id="info"><a href="http://threejs.org" target="_blank">three.js</a> - mirror node-based
+		<div id="info"><a href="http://threejs.org" target="_blank" rel="noopener">three.js</a> - mirror node-based
 		</div>
 
 		<script src="../build/three.js"></script>
@@ -229,7 +229,7 @@
 				sphereGroup.add( halfSphere );
 
 				var geometry = new THREE.IcosahedronGeometry( 5, 0 );
-				var material = new THREE.MeshPhongMaterial( { color: 0xffffff, emissive: 0x333333, shading: THREE.FlatShading } );
+				var material = new THREE.MeshPhongMaterial( { color: 0xffffff, emissive: 0x333333, flatShading: true } );
 				smallSphere = new THREE.Mesh( geometry, material );
 				scene.add(smallSphere);
 
@@ -305,8 +305,6 @@
 				smallSphere.rotation.z = timer * 0.8;
 
 				groundMirrorMaterial.updateFrame( delta );
-
-				cameraControls.update();
 
 				render();
 			}
